@@ -1,0 +1,9 @@
+---
+# vars file for netapp_nfs_volume
+# You can define variables here that should not have defaults,
+# or are specific to certain environments if you're not using group_vars/host_vars.
+# For this role, most variables are expected to be overridden from the playbook
+# or have defaults in defaults/main.yml.
+
+# Example:
+# my_specific_variable: "some_value"

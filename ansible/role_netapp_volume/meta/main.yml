@@ -1,0 +1,37 @@
+---
+galaxy_info:
+  author: Your Name / AI Assistant
+  description: Ansible role to create an NFS volume on a NetApp ONTAP array.
+  company: Your Company
+
+  license: MIT
+
+  min_ansible_version: "2.9"
+
+  platforms:
+    - name: EL
+      versions:
+        - "7"
+        - "8"
+    - name: Ubuntu
+      versions:
+        - focal
+        - bionic
+  # Add other platforms if applicable, though this role interacts with NetApp,
+  # the control node OS is what matters here.
+
+  galaxy_tags:
+    - netapp
+    - ontap
+    - storage
+    - nfs
+    - volume
+
+dependencies: []
+  # List your role dependencies here, if any.
+  # For example:
+  # - { role: another_role_name, version: 1.0 }
+
+collections:
+  - netapp.ontap
+  

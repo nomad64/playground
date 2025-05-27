@@ -1,0 +1,9 @@
+---
+# handlers file for netapp_nfs_volume
+# Handlers are tasks that are run at the end of a play if notified by a task.
+# For simple volume creation, handlers might not be strictly necessary.
+# Example:
+# - name: restart some_service
+#   ansible.builtin.service:
+#     name: some_service
+#     state: restarted

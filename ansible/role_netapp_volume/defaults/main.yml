@@ -1,0 +1,41 @@
+---
+# defaults file for netapp_nfs_volume
+
+# NetApp Connection Parameters
+netapp_hostname: "" # Example: "ontap.example.com" (Required)
+netapp_username: "admin"
+netapp_password: "" # (Required - use Ansible Vault or pass as extra-var)
+netapp_use_https: true
+netapp_validate_certs: false # Set to true in production environments
+
+# SVM (Storage Virtual Machine) Parameters
+netapp_svm_name: "" # Example: "svm_nfs_prod" (Required)
+
+# Volume Parameters
+netapp_volume_name: "my_nfs_volume"
+netapp_volume_aggregate: "" # Example: "aggr1" (Required)
+netapp_volume_size: "1"
+netapp_volume_size_unit: "gb" # Options: kb, mb, gb, tb
+netapp_volume_junction_path: "/{{ netapp_volume_name }}" # Default junction path based on volume name
+netapp_volume_security_style: "unix" # Common for NFS. Others: ntfs, mixed
+netapp_volume_state: "present" # 'present' to create/ensure, 'absent' to delete
+netapp_volume_space_guarantee: "none" # Options: none, volume, file
+
+# Export Policy Parameters
+# This will be the name of the export policy created and associated with the volume.
+netapp_volume_export_policy: "{{ netapp_volume_name }}_policy" # e.g., my_nfs_volume_policy
+netapp_export_policy_state: "present" # 'present' to create/ensure, 'absent' to delete
+
+# Rules for the export policy. This is a list of rule objects.
+# If empty, no rules will be explicitly created by this role,
+# and the volume will use the export policy (which might be empty or have rules from elsewhere).
+netapp_export_policy_rules:
+  - clientmatch: "0.0.0.0/0" # Allows all clients. Be more restrictive in production.
+    protocols: ["nfs3", "nfs4"] # Or just nfs if ONTAP version is older or specific NFS version is desired
+    rorule: ["sys"] # Read-only access security flavors
+    rwrule: ["sys"] # Read-write access security flavors
+    superuser: ["sys"] # Superuser security flavors
+    # rule_index: 1 # Optional: specify rule index if ordering is critical
+    # anon: "0" # User ID for anonymous access
+    # Other parameters like 'v<y_bin_273>_option', 'v3_ntfs_unix_security_ops' can be added if needed.
+    

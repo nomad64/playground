@@ -1,0 +1,57 @@
+---
+- name: Provision NetApp NFS Volume with Custom Export Policy for Web Application
+  hosts: localhost # This role runs against the NetApp API, so localhost is appropriate for the control node
+  connection: local # No remote connection needed from the control node itself
+  gather_facts: false # Facts about the localhost are not needed for this operation
+
+  # Using vars_prompt for interactive password input.
+  # For production/CI/CD, use Ansible Vault to store sensitive data like passwords.
+  # Example: ansible-vault encrypt_string 'your_password' --name 'netapp_admin_password_vault'
+  # Then in vars: netapp_password: "{{ netapp_admin_password_vault }}"
+  vars_prompt:
+    - name: netapp_password_prompt
+      prompt: "Enter NetApp admin/service account password"
+      private: yes # Hides password input
+
+  roles:
+    - role: netapp_volume # Ensure this matches the directory name of your role
+      vars:
+        # ---- NetApp Connection Details ----
+        netapp_hostname: "ontap-cluster1.corp.example.com" # Replace with your NetApp cluster mgmt IP/hostname
+        netapp_username: "ansible_svc"                     # Replace with your NetApp service account
+        netapp_password: "{{ netapp_password_prompt }}"    # Using the prompted password
+        netapp_svm_name: "svm_web_production"              # Target SVM for the new volume
+        netapp_validate_certs: true                        # Recommended for production to ensure secure connection
+
+        # ---- Volume Specifics ----
+        netapp_volume_name: "webapp_assets_prod"
+        netapp_volume_aggregate: "aggr1_ssd_01"            # Choose an appropriate aggregate
+        netapp_volume_size: "75"
+        netapp_volume_size_unit: "gb"
+        netapp_volume_junction_path: "/web/assets"         # Custom junction path for the volume
+        netapp_volume_security_style: "unix"
+        netapp_volume_space_guarantee: "none"              # Thin provision the volume
+
+        # ---- Export Policy Configuration ----
+        # Custom export policy name (optional, defaults to {{ netapp_volume_name }}_policy)
+        # netapp_volume_export_policy: "web_assets_prod_export_policy" # Explicitly naming it
+
+        netapp_export_policy_rules:
+          - clientmatch: "10.10.1.0/24" # Web server subnet
+            protocols: ["nfs3", "nfs4.1"]
+            rwrule: ["sys"]
+            rorule: ["sys"]
+            superuser: ["sys"] # Allow superuser from web servers
+            rule_index: 10
+          - clientmatch: "10.10.5.15" # Specific deployment server (read-write, no superuser)
+            protocols: ["nfs4.1"]
+            rwrule: ["sys"]
+            rorule: ["sys"]
+            superuser: ["none"] # More restrictive for this client
+            rule_index: 20
+          - clientmatch: "172.16.0.0/16" # Monitoring tools subnet (read-only)
+            protocols: ["nfs3"]
+            rorule: ["sys"]
+            anon: "65534" # Map anonymous to nobody
+            rule_index: 30
+            

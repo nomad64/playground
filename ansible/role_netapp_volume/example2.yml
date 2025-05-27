@@ -1,0 +1,52 @@
+---
+- name: Provision NetApp NFS Volume for Web Application
+  hosts: localhost  # This role runs against the NetApp API, so localhost is fine
+  connection: local
+  gather_facts: false
+
+  # It's highly recommended to use Ansible Vault for sensitive data like passwords
+  # For example, you could load them from a vault file:
+  # vars_files:
+  #   - secrets.vault.yml
+
+  # Or prompt the user (less secure for automation but good for interactive runs)
+  vars_prompt:
+    - name: netapp_admin_password
+      prompt: "Enter the NetApp admin password"
+      private: yes
+    - name: target_svm_name
+      prompt: "Enter the target SVM name (e.g., svm_nfs_prod)"
+      private: no
+    - name: target_aggregate_name
+      prompt: "Enter the target aggregate name (e.g., aggr1_data)"
+      private: no
+    - name: volume_name_to_create
+      prompt: "Enter the desired volume name (e.g., web_app_logs)"
+      private: no
+      default: "web_app_logs"
+    - name: volume_size_gb
+      prompt: "Enter the volume size in GB"
+      private: no
+      default: "10"
+
+
+  roles:
+    - role: netapp_nfs_volume  # Assuming the role is named 'netapp_nfs_volume'
+      vars:
+        # NetApp Connection Details
+        netapp_hostname: "your-netapp-cluster.example.com" # Replace with your NetApp cluster mgmt IP/hostname
+        netapp_username: "ansible_user" # Replace with your NetApp service account
+        netapp_password: "{{ netapp_admin_password }}"
+        netapp_validate_certs: true # Set to false for lab/dev if using self-signed certs
+
+        # SVM and Volume Specifics
+        netapp_svm_name: "{{ target_svm_name }}"
+        netapp_volume_name: "{{ volume_name_to_create }}"
+        netapp_volume_aggregate: "{{ target_aggregate_name }}"
+        netapp_volume_size: "{{ volume_size_gb }}"
+        netapp_volume_size_unit: "gb"
+        netapp_volume_junction_path: "/{{ volume_name_to_create }}" # Creates /web_app_logs
+        netapp_volume_export_policy: "standard_nfs_exports" # Ensure this export policy exists on the SVM
+        netapp_volume_security_style: "unix"
+        netapp_volume_state: "present"
+        
