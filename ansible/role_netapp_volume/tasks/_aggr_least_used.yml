@@ -26,20 +26,22 @@
     - name: "Check if aggregate information was retrieved"
       ansible.builtin.fail:
         msg: "Failed to retrieve aggregate information. Check connection details and permissions."
-      when: not ontap_info_result.ontap_info.aggregates | default([])
+      when: not ontap_info_result.ontap_info['storage/aggregates'].records | default([])
 
     - name: "Find aggregate with the lowest used capacity"
       ansible.builtin.set_fact:
-        lowest_used_aggregate: "{{
-          ontap_info_result.ontap_info.aggregates |
-          # Sort aggregates by 'used_percent' in ascending order
-          sort(attribute='used_percent') |
-          # Get the first item (which will be the one with the lowest used_percent)
-          first
+        lowest_used_aggregate_name: "{{
+          ontap_info_result.ontap_info['storage/aggregates'].records |
+          # Sort the list of aggregate records by the 'used_percent' field
+          sort(attribute='space.block_storage.used_percent') |
+          # Get the first item from the sorted list (which has the lowest used_percent)
+          first |
+          # Extract the 'name' field from that aggregate record
+          json_query('name')
         }}"
-      when: ontap_info_result.ontap_info.aggregates | length > 0
+      when: ontap_info_result.ontap_info['storage/aggregates'].records | length > 0
 
     - name: "Display the name of the aggregate with the lowest used capacity"
       ansible.builtin.debug:
-        msg: "The aggregate with the lowest used capacity is: {{ lowest_used_aggregate.name }} ({{ lowest_used_aggregate.used_percent }}% used)"
-      when: lowest_used_aggregate is defined
+        msg: "The aggregate with the lowest used capacity is: {{ lowest_used_aggregate_name }}"
+      when: lowest_used_aggregate_name is defined
