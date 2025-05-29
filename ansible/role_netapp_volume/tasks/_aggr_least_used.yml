@@ -1,0 +1,45 @@
+---
+- name: "Get NetApp Aggregate with Lowest Used Capacity"
+  hosts: localhost # Run locally, as the NetApp modules connect directly to the array
+  connection: local
+  gather_facts: false
+
+  vars:
+    # NetApp ONTAP connection details
+    netapp_hostname: "your_netapp_cluster_mgmt_ip_or_fqdn" # <<< CHANGE THIS
+    netapp_username: "your_netapp_api_username"             # <<< CHANGE THIS
+    netapp_password: "your_netapp_api_password"             # <<< CHANGE THIS (Use Ansible Vault for production!)
+    netapp_validate_certs: false # Set to true for production with valid certs
+
+  tasks:
+    - name: "Gather NetApp aggregate information"
+      netapp.ontap.na_ontap_info:
+        hostname: "{{ netapp_hostname }}"
+        username: "{{ netapp_username }}"
+        password: "{{ netapp_password }}"
+        validate_certs: "{{ netapp_validate_certs }}"
+        gather_subset:
+          - aggregates # Only gather aggregate details to minimize data transfer
+      delegate_to: localhost
+      register: ontap_info_result
+
+    - name: "Check if aggregate information was retrieved"
+      ansible.builtin.fail:
+        msg: "Failed to retrieve aggregate information. Check connection details and permissions."
+      when: not ontap_info_result.ontap_info.aggregates | default([])
+
+    - name: "Find aggregate with the lowest used capacity"
+      ansible.builtin.set_fact:
+        lowest_used_aggregate: "{{
+          ontap_info_result.ontap_info.aggregates |
+          # Sort aggregates by 'used_percent' in ascending order
+          sort(attribute='used_percent') |
+          # Get the first item (which will be the one with the lowest used_percent)
+          first
+        }}"
+      when: ontap_info_result.ontap_info.aggregates | length > 0
+
+    - name: "Display the name of the aggregate with the lowest used capacity"
+      ansible.builtin.debug:
+        msg: "The aggregate with the lowest used capacity is: {{ lowest_used_aggregate.name }} ({{ lowest_used_aggregate.used_percent }}% used)"
+      when: lowest_used_aggregate is defined
