@@ -38,4 +38,42 @@ netapp_export_policy_rules:
     # rule_index: 1 # Optional: specify rule index if ordering is critical
     # anon: "0" # User ID for anonymous access
     # Other parameters like 'v<y_bin_273>_option', 'v3_ntfs_unix_security_ops' can be added if needed.
-    
+
+
+############################################## Rev 2
+
+---
+# defaults file for netapp_volume
+
+# NetApp ONTAP connection details
+netapp_hostname: "your_netapp_cluster_mgmt_ip_or_fqdn"
+netapp_username: "your_netapp_api_username"
+netapp_password: "your_netapp_api_password" # IMPORTANT: Use Ansible Vault for production!
+netapp_validate_certs: false # Set to true for production with valid certs
+
+# Volume parameters
+netapp_volume_name: "ansible_test_volume"
+netapp_volume_vserver: "your_vserver_name"
+netapp_volume_aggregate: "your_aggregate_name"
+netapp_volume_size: "100g" # e.g., "10g", "1t"
+
+# Desired state for the volume
+# Options:
+#   'present': Ensures the volume exists and matches specified parameters.
+#              If it doesn't exist, it will be created.
+#   'online': Ensures the volume exists and is online.
+#   'offline': Ensures the volume exists and is offline.
+#   'absent': Ensures the volume does not exist (it will be destroyed).
+#   'snapshot': Creates a snapshot of the volume (new custom action)
+netapp_volume_state: "present"
+
+# Optional volume creation/modification parameters
+netapp_volume_junction_path: "/vol/{{ netapp_volume_name }}" # Default junction path
+netapp_volume_space_guarantee: "none" # Options: "volume", "none"
+netapp_volume_snapshot_policy: "default" # Options: "default", "none", or a custom policy name
+netapp_volume_security_style: "unix" # Options: "unix", "ntfs", "mixed"
+netapp_volume_tiering_policy: "none" # Options: "none", "auto", "snapshot-only", "all"
+netapp_volume_comment: "Managed by Ansible"
+
+# Variables for custom actions (e.g., snapshot)
+netapp_snapshot_name: "ansible_snapshot_{{ ansible_date_time.iso8601_basic_short }}" # Default snapshot name

@@ -1,79 +1,177 @@
-# Ansible Role: NetApp NFS Volume Creator
+# NetApp ONTAP Volume Management Role
 
-This role creates (or ensures the existence of) an NFS volume on a NetApp ONTAP storage array. It also creates and manages an associated export policy and its rules for the volume. Automating this process with Ansible ensures consistency, repeatability, and reduces the potential for manual errors, especially in environments with multiple volumes or frequent provisioning needs. This role is designed to be idempotent, meaning it can be run multiple times with the same parameters and will only make changes if the desired state is not met.
+---
+
+This Ansible role provides a comprehensive solution for managing NetApp ONTAP volumes, allowing you to **create**, **modify** (including **resizing**), **disable** (take offline or destroy), and perform other **custom actions** like **creating snapshots**. It's designed to be idempotent, ensuring that your desired state is maintained with each execution.
+
+## Features
+
+* **Create Volumes**: Provision new volumes with specified size, aggregate, Vserver, junction path, space guarantee, snapshot policy, and security style.
+* **Modify Volumes**: Adjust existing volume parameters, including **resizing** (increasing size) and updating comments or other properties.
+* **Manage Volume State**: Take volumes `online` or `offline`.
+* **Destroy Volumes**: Remove volumes completely by setting their state to `absent`.
+* **Custom Actions**: Extensible framework to add unique operations, such as **creating snapshots**.
 
 ## Requirements
 
-* **Ansible 2.9 or later:** Ensure your Ansible control node meets this minimum version requirement for compatibility with the modules used.
-* **NetApp ONTAP Ansible Collection: `netapp.ontap`**: This collection provides the necessary Ansible modules (like `na_ontap_volume`, `na_ontap_export_policy`, etc.) to interact with the NetApp ONTAP API. You can install it using:
+* Ansible 2.10 or newer.
+* The `netapp.ontap` Ansible collection. Install it using:
     ```bash
     ansible-galaxy collection install netapp.ontap
     ```
-* **Python `netapp-lib` library**: This underlying Python library is used by the `netapp.ontap` collection to facilitate communication and operations with the NetApp storage array. Install it on your Ansible control node:
-    ```bash
-    pip install netapp-lib
-    ```
-* **Credentials and Connectivity**:
-    * The Ansible control node must have network connectivity to the NetApp ONTAP cluster management LIF.
-    * The provided NetApp credentials must have sufficient privileges on the target SVM and cluster to perform actions such as volume creation, modification, deletion, export policy management, and SVM interaction. Typically, a role with `vsadmin` capabilities or a more granular custom role is recommended.
+* Network connectivity from your Ansible control node to the NetApp ONTAP cluster management LIF.
+* A NetApp ONTAP user with appropriate API privileges to manage volumes and snapshots.
 
 ## Role Variables
 
-The following variables can be defined by the user to customize the NFS volume creation and its export policy. Default values are specified in `defaults/main.yml` and can be overridden in your playbook or inventory.
+This role uses variables defined in `defaults/main.yml`. You can override these in your playbook, inventory, or `vars/main.yml`.
 
-| Variable                        | Required | Default                               | Description                                                                                                                            |
-| ------------------------------- | -------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `netapp_hostname`               | Yes      | `""`                                  | Hostname (FQDN) or IP address of the NetApp ONTAP cluster management LIF. All API calls from the role will be directed to this endpoint. |
-| `netapp_username`               | Yes      | `"admin"`                             | Username for authenticating to the NetApp ONTAP array. Consider using a dedicated service account with least privilege.               |
-| `netapp_password`               | Yes      | `""`                                  | Password for the `netapp_username`. **It is strongly recommended to use Ansible Vault for managing this sensitive value** to avoid plain text exposure. |
-| `netapp_svm_name`               | Yes      | `""`                                  | Name of the Storage Virtual Machine (SVM, formerly Vserver) where the volume and export policy will be created. The SVM provides a distinct set of resources and network configurations. |
-| `netapp_use_https`              | No       | `true`                                | Specifies whether to use HTTPS (secure) or HTTP for the API connection. HTTPS is highly recommended for all environments.           |
-| `netapp_validate_certs`         | No       | `false`                               | Whether to validate SSL certificates when `netapp_use_https` is `true`. For production, set to `true` to ensure secure communication by validating the NetApp array's SSL certificate against a trusted CA. For lab/dev environments with self-signed certificates, you might temporarily set this to `false`, acknowledging the security risk. |
-| **Volume Parameters** |          |                                       |                                                                                                                                        |
-| `netapp_volume_name`            | Yes      | `"my_nfs_volume"`                     | Name of the NFS volume to create. Choose a descriptive name that reflects the volume's purpose, e.g., `project_x_data` or `db_logs_archive`. |
-| `netapp_volume_aggregate`       | Yes      | `""`                                  | Name of the aggregate on which to create the volume. Aggregates are collections of physical disks; the choice can impact performance, tiering, and available capacity. |
-| `netapp_volume_size`            | No       | `"1"`                                 | Size of the volume. This value is combined with `netapp_volume_size_unit`.                                                              |
-| `netapp_volume_size_unit`       | No       | `"gb"`                                | Unit for the volume size (e.g., `kb`, `mb`, `gb`, `tb`). For example, `size: "100"` and `size_unit: "gb"` creates a 100GB volume.     |
-| `netapp_volume_junction_path`   | No       | `"/{{ netapp_volume_name }}"`          | The path within the SVM's namespace where the volume will be mounted, making it accessible to NFS clients. E.g., `/exports/data/{{ netapp_volume_name }}`. If not specified, ONTAP might assign a default or it might not be mounted automatically via this parameter. |
-| `netapp_volume_security_style`  | No       | `"unix"`                              | Security style for the volume (`unix`, `ntfs`, `mixed`). For NFS, `unix` is typical. `mixed` or `ntfs` might be used in environments with both NFS and CIFS access to the same data, with careful consideration of permission handling. |
-| `netapp_volume_state`           | No       | `"present"`                           | Desired state of the volume. `present` ensures the volume exists (creates or updates). `absent` will delete the volume (use with caution). |
-| `netapp_volume_space_guarantee` | No       | `"none"`                              | Space guarantee setting for the volume (`none`, `volume`, `file`). `volume` fully provisions the space from the aggregate immediately. `none` (thin provisioning) allocates space as needed. |
-| **Export Policy Parameters** |          |                                       |                                                                                                                                        |
-| `netapp_volume_export_policy`   | No       | `"{{ netapp_volume_name }}_policy"`    | Name of the export policy to create/manage and associate with the volume. Defaults to a name derived from the volume name (e.g., `my_nfs_volume_policy`) for a dedicated policy. You can specify an existing policy name if you intend to share policies across multiple volumes. |
-| `netapp_export_policy_state`    | No       | `"present"`                           | Desired state of the export policy and its rules. `present` ensures they exist. `absent` will attempt to remove them.                |
-| `netapp_export_policy_rules`    | No       | See `defaults/main.yml` for example   | A list of rule objects to apply to the export policy. Each rule is a dictionary defining client access. An empty list means no rules are explicitly managed by this role for the policy; this might be useful if rules are managed externally or if a very open (or very restricted, depending on ONTAP defaults and existing rules if the policy is pre-existing) policy is intended initially. |
+| Variable                      | Default Value                                     | Description                                                                                                                                                                                                                                                          |
+| :---------------------------- | :------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `netapp_hostname`             | `"your_netapp_cluster_mgmt_ip_or_fqdn"`           | The IP address or FQDN of your NetApp ONTAP cluster's management LIF.                                                                                                                                                                                                |
+| `netapp_username`             | `"your_netapp_api_username"`                      | The username for API access to the NetApp cluster.                                                                                                                                                                                                                   |
+| `netapp_password`             | `"your_netapp_api_password"`                      | **Sensitive!** The password for the API user. **Strongly recommended to use Ansible Vault for this variable.** |
+| `netapp_validate_certs`       | `false`                                           | Set to `true` to validate SSL certificates. Ensure your NetApp cluster has valid certificates if enabling.                                                                                                                                                             |
+| `netapp_volume_name`          | `"ansible_test_volume"`                           | The name of the NetApp volume to manage.                                                                                                                                                                                                                             |
+| `netapp_volume_vserver`       | `"your_vserver_name"`                             | The name of the storage virtual machine (Vserver) where the volume resides or will be created.                                                                                                                                                                       |
+| `netapp_volume_aggregate`     | `"your_aggregate_name"`                           | The aggregate where the volume will be created. Required when `netapp_volume_state` is `present` for a new volume.                                                                                                                                                   |
+| `netapp_volume_size`          | `"100g"`                                          | The desired size of the volume (e.g., "10g", "1t"). Used for creation and resizing.                                                                                                                                                                                  |
+| `netapp_volume_state`         | `"present"`                                       | Defines the desired state of the volume. Options: <br> `present`: Ensures volume exists and matches parameters (creates or modifies/resizes). <br> `online`: Ensures volume exists and is online. <br> `offline`: Ensures volume exists and is offline. <br> `absent`: Ensures volume does not exist (destroys it). <br> `snapshot`: Creates a snapshot of the volume. |
+| `netapp_volume_junction_path` | `"/vol/{{ netapp_volume_name }}"`                 | The junction path for the volume (where it's mounted in the namespace).                                                                                                                                                                                              |
+| `netapp_volume_space_guarantee` | `"none"`                                          | The space guarantee type for the volume. Options: `"volume"`, `"none"`.                                                                                                                                                                                              |
+| `netapp_volume_snapshot_policy` | `"default"`                                       | The snapshot policy to apply to the volume. Options: `"default"`, `"none"`, or a custom policy name.                                                                                                                                                                 |
+| `netapp_volume_security_style` | `"unix"`                                          | The security style for the volume. Options: `"unix"`, `"ntfs"`, `"mixed"`.                                                                                                                                                                                           |
+| `netapp_volume_tiering_policy` | `"none"`                                          | The FabricPool tiering policy. Options: `"none"`, `"auto"`, `"snapshot-only"`, `"all"`.                                                                                                                                                                             |
+| `netapp_volume_comment`       | `"Managed by Ansible"`                            | A comment to associate with the volume.                                                                                                                                                                                                                              |
+| `netapp_snapshot_name`        | `"ansible_snapshot_{{ ansible_date_time.iso8601_basic_short }}"` | The name for the snapshot when `netapp_volume_state` is `snapshot`. Defaults to a timestamped name.                                                                                                                                                                  |
 
-### Export Policy Rule Structure
+## Role Structure
 
-Each item in the `netapp_export_policy_rules` list is a dictionary that defines an access rule. These rules control which clients can access the NFS share and what level of permissions they have. Key parameters include:
+```
+netapp_volume/
+├── tasks/
+│   ├── main.yml          # Main entry point for the role, includes other task files based on state.
+│   ├── _create_volume.yml  # Handles volume creation and modification/resizing when state is 'present'.
+│   ├── _manage_state.yml   # Manages volume online/offline state and destruction ('absent').
+│   └── _create_snapshot.yml # Custom task for creating a volume snapshot.
+├── defaults/
+│   └── main.yml          # Default variables for the role.
+├── vars/
+│   └── main.yml          # Placeholder for environment-specific variables (consider Ansible Vault).
+├── handlers/
+│   └── main.yml          # Placeholder for handlers (not used by default in this role).
+└── meta/
+    └── main.yml          # Role metadata.
+```
 
-* `clientmatch` (string, required): Specifies the client(s) this rule applies to. This can be a single IP address (e.g., `"192.168.1.10"`), a CIDR block (e.g., `"10.0.0.0/8"` for a subnet), a hostname (e.g., `"client.example.com"`), a netgroup (e.g., `"@engineering_hosts"` if configured on the SVM/LDAP), or `"0.0.0.0/0"` to match all clients (use with extreme caution as it allows universal access).
-* `protocols` (list of strings, required): Defines the list of access protocols allowed by this rule (e.g., `["nfs3"]`, `["nfs4"]`, `["nfs4.1"]`, or a combination like `["nfs3", "nfs4"]`).
-* `rorule` (list of strings, optional): Security flavors that grant read-only access (e.g., `["sys"]`, `["krb5"]`, `["any"]`). `sys` is common for basic NFS security based on UID/GID. Using Kerberos (`krb5`, `krb5i`, `krb5p`) provides stronger, cryptographic authentication.
-* `rwrule` (list of strings, optional): Security flavors that grant read-write access. Similar options as `rorule`. If both `rorule` and `rwrule` are specified for the same security flavor, `rwrule` typically takes precedence.
-* `superuser` (list of strings, optional): Security flavors that grant root-level (superuser) privileges to the client. Often set to `["sys"]` for trusted clients or restricted further (e.g., `["none"]` or not specified) for enhanced security. Granting superuser access should be done cautiously.
-* `rule_index` (integer, optional): Specifies the index (order) of the rule within the export policy. Rules are evaluated in ascending order of their index. Explicitly setting this can help manage complex policies where rule order is critical, though ONTAP often handles ordering adequately based on rule specificity if indices are not provided or are the same.
-* `anon` (string, optional): Defines the effective user ID (UID) for anonymous users accessing the share under this rule. A common default in ONTAP is `65534` (often the `nobody` user). Setting it to `"0"` maps anonymous users to root, which can be a significant security risk and should be avoided unless absolutely necessary and understood.
+## Usage Example
 
-Example `netapp_export_policy_rules`:
+Here's how to use this role in an Ansible playbook to demonstrate creating, resizing, taking offline, bringing online, snapshotting, and destroying volumes.
+
+**`manage_volumes.yml`**
+
 ```yaml
-netapp_export_policy_rules:
-  # Rule for primary application servers with read-write access
-  - clientmatch: "192.168.100.0/24"
-    protocols: ["nfs3", "nfs4.1"]
-    rwrule: ["sys", "krb5i"] # Allow read-write via system auth or Kerberos integrity
-    rorule: ["sys", "krb5i"] # Also allow read-only
-    superuser: ["sys"]       # Allow root access for system auth from these clients
-    rule_index: 10
-  # Rule for a specific backup server with read-only access
-  - clientmatch: "backupserver.corp.example.com"
-    protocols: ["nfs3"]
-    rorule: ["sys"]
-    anon: "65534" # Ensure anonymous access is mapped to 'nobody'
-    rule_index: 20
-  # A more restrictive rule for guest access from a specific IP
-  - clientmatch: "10.50.1.23"
-    protocols: ["nfs4"]
-    rorule: ["any"] # Allow read-only for any security flavor from this specific IP
-    anon: "65534"
-    rule_index: 30
+---
+- name: "Manage NetApp ONTAP Volumes"
+  hosts: localhost # Run locally, as the NetApp modules connect directly to the array
+  connection: local
+  gather_facts: false # No need to gather facts from localhost for this role
+
+  vars:
+    # IMPORTANT: Override these variables for your environment.
+    # For production, use Ansible Vault for 'netapp_password'!
+    netapp_hostname: "192.168.1.100" # Your NetApp cluster management IP/FQDN
+    netapp_username: "admin"
+    netapp_password: "YourSecurePassword" # Use ansible-vault!
+    netapp_validate_certs: false # Set to true if using valid SSL certificates
+
+  roles:
+    - role: netapp_volume
+      vars:
+        netapp_volume_name: "my_ansible_vol_1"
+        netapp_volume_vserver: "vs1"
+        netapp_volume_aggregate: "aggr1"
+        netapp_volume_size: "50g"
+        netapp_volume_state: "present" # ACTION: Create or ensure present
+
+    - name: "--- RESIZE EXAMPLE: Increasing Volume Size ---"
+      ansible.builtin.debug:
+        msg: "Attempting to resize 'my_ansible_vol_1' from 50g to 75g"
+
+    - role: netapp_volume
+      vars:
+        netapp_volume_name: "my_ansible_vol_1"
+        netapp_volume_vserver: "vs1"
+        netapp_volume_size: "75g" # ACTION: Modify/Resize - This will trigger a resize if current size is different
+        netapp_volume_comment: "Resized by Ansible"
+        netapp_volume_state: "present" # Ensures it's present and at the new size
+
+    - name: "--- END RESIZE EXAMPLE ---"
+      ansible.builtin.debug:
+        msg: "Resize attempt complete for 'my_ansible_vol_1'"
+
+    - role: netapp_volume
+      vars:
+        netapp_volume_name: "my_ansible_vol_2"
+        netapp_volume_vserver: "vs1"
+        netapp_volume_aggregate: "aggr1"
+        netapp_volume_size: "20g"
+        netapp_volume_junction_path: "/data/vol2"
+        netapp_volume_space_guarantee: "volume"
+        netapp_volume_state: "present" # ACTION: Create or ensure present
+
+    - role: netapp_volume
+      vars:
+        netapp_volume_name: "my_ansible_vol_1"
+        netapp_volume_vserver: "vs1"
+        netapp_volume_state: "offline" # ACTION: Take volume offline
+
+    - role: netapp_volume
+      vars:
+        netapp_volume_name: "my_ansible_vol_1"
+        netapp_volume_vserver: "vs1"
+        netapp_volume_state: "online" # ACTION: Bring volume online
+
+    - role: netapp_volume
+      vars:
+        netapp_volume_name: "my_ansible_vol_1"
+        netapp_volume_vserver: "vs1"
+        netapp_volume_state: "snapshot" # ACTION: Create a snapshot
+        netapp_snapshot_name: "daily_backup_vol1" # Custom snapshot name
+
+    - role: netapp_volume
+      vars:
+        netapp_volume_name: "my_ansible_vol_2"
+        netapp_volume_vserver: "vs1"
+        netapp_volume_state: "absent" # ACTION: Destroy volume
+```
+
+## Running the Playbook
+
+To execute the playbook, navigate to the directory containing your `manage_volumes.yml` file and run:
+
+```bash
+ansible-playbook -i localhost, manage_volumes.yml
+```
+
+If you're using Ansible Vault for your `netapp_password`, remember to include the `--ask-vault-pass` flag:
+
+```bash
+ansible-playbook -i localhost, manage_volumes.yml --ask-vault-pass
+```
+
+## Extending with More Custom Actions
+
+To add more specific, user-defined actions (like reverting a snapshot, modifying qtrees, etc.):
+
+1.  **Define a new `netapp_volume_state` value** (e.g., `'revert_snapshot'`) in `defaults/main.yml` or use a new variable to trigger the action.
+2.  **Add a conditional `ansible.builtin.include_tasks`** in `tasks/main.yml` that checks for your new state.
+    ```yaml
+    - name: "Include task for custom action: revert snapshot"
+      ansible.builtin.include_tasks: _revert_snapshot.yml
+      when: netapp_volume_state == 'revert_snapshot'
+    ```
+3.  **Create a new task file** (e.g., `_revert_snapshot.yml`) in the `tasks/` directory containing the specific Ansible tasks for that action, utilizing the appropriate `netapp.ontap` module (e.g., `netapp.ontap.na_ontap_snapshot_revert`).
+
+This modular design makes the role highly extensible for all your NetApp ONTAP automation needs.
+```

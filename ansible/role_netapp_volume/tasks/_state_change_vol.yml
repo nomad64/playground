@@ -1,0 +1,18 @@
+---
+# tasks file for managing volume state (online, offline, absent)
+
+- name: "Set NetApp volume '{{ netapp_volume_name }}' to state '{{ netapp_volume_state }}'"
+  netapp.ontap.na_ontap_volume:
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    validate_certs: "{{ netapp_validate_certs }}"
+    state: "{{ netapp_volume_state }}" # Can be 'online', 'offline', or 'absent'
+    name: "{{ netapp_volume_name }}"
+    vserver: "{{ netapp_volume_vserver }}"
+  delegate_to: localhost # Run this task on the Ansible control node
+  register: volume_state_result
+
+- name: "Display volume state change result"
+  ansible.builtin.debug:
+    msg: "Volume '{{ netapp_volume_name }}' state changed to '{{ netapp_volume_state }}': {{ volume_state_result.changed | ternary('changed', 'no change') }}"

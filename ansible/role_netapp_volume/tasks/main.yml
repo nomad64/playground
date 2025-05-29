@@ -1,75 +1,19 @@
 ---
-# tasks file for netapp_nfs_volume
+# tasks file for netapp_volume
 
-- name: Ensure NetApp export policy exists
-  netapp.ontap.na_ontap_export_policy:
-    state: "{{ netapp_export_policy_state }}"
-    name: "{{ netapp_volume_export_policy }}"
-    vserver: "{{ netapp_svm_name }}"
-    hostname: "{{ netapp_hostname }}"
-    username: "{{ netapp_username }}"
-    password: "{{ netapp_password }}"
-    https: "{{ netapp_use_https }}"
-    validate_certs: "{{ netapp_validate_certs }}"
-  register: export_policy_result
+- name: "Include task to create or modify volume"
+  ansible.builtin.include_tasks: _create_volume.yml
+  when: netapp_volume_state == 'present'
 
-- name: Display export policy creation result
-  ansible.builtin.debug:
-    var: export_policy_result
-    verbosity: 1
+- name: "Include task to manage volume state (online/offline)"
+  ansible.builtin.include_tasks: _manage_state.yml
+  when: netapp_volume_state in ['online', 'offline']
 
-- name: Manage NetApp export policy rules
-  netapp.ontap.na_ontap_export_policy_rule:
-    state: "{{ netapp_export_policy_state }}" # Rules should be 'present' if policy is 'present'
-    name: "{{ netapp_volume_export_policy }}"
-    vserver: "{{ netapp_svm_name }}"
-    clientmatch: "{{ item.clientmatch }}"
-    protocols: "{{ item.protocols }}"
-    rorule: "{{ item.rorule | default(omit) }}"
-    rwrule: "{{ item.rwrule | default(omit) }}"
-    superuser: "{{ item.superuser | default(omit) }}"
-    rule_index: "{{ item.rule_index | default(omit) }}"
-    anon: "{{ item.anon | default(omit) }}"
-    # Add other rule parameters as needed, using `default(omit)` for optional ones
-    hostname: "{{ netapp_hostname }}"
-    username: "{{ netapp_username }}"
-    password: "{{ netapp_password }}"
-    https: "{{ netapp_use_https }}"
-    validate_certs: "{{ netapp_validate_certs }}"
-  loop: "{{ netapp_export_policy_rules }}"
-  when: netapp_export_policy_rules | length > 0 and netapp_export_policy_state == 'present'
-  register: export_policy_rules_result
+- name: "Include task to destroy volume"
+  ansible.builtin.include_tasks: _manage_state.yml
+  when: netapp_volume_state == 'absent'
 
-- name: Display export policy rules result
-  ansible.builtin.debug:
-    var: export_policy_rules_result
-    verbosity: 1
-  when: netapp_export_policy_rules | length > 0 and netapp_export_policy_state == 'present'
-
-- name: Ensure NetApp NFS volume exists and is associated with the export policy
-  netapp.ontap.na_ontap_volume:
-    state: "{{ netapp_volume_state }}"
-    name: "{{ netapp_volume_name }}"
-    vserver: "{{ netapp_svm_name }}"
-    aggregate_name: "{{ netapp_volume_aggregate }}"
-    size: "{{ netapp_volume_size }}"
-    size_unit: "{{ netapp_volume_size_unit }}"
-    junction_path: "{{ netapp_volume_junction_path }}"
-    policy: "{{ netapp_volume_export_policy }}" # This associates the volume with the created/managed policy
-    security_style: "{{ netapp_volume_security_style }}"
-    space_guarantee: "{{ netapp_volume_space_guarantee }}"
-    # Add other parameters as needed, e.g., tiering_policy, qos_policy_group etc.
-
-    hostname: "{{ netapp_hostname }}"
-    username: "{{ netapp_username }}"
-    password: "{{ netapp_password }}"
-    https: "{{ netapp_use_https }}"
-    validate_certs: "{{ netapp_validate_certs }}"
-  register: volume_creation_result
-  failed_when: "volume_creation_result.failed and 'Volume already exists with different config' not in volume_creation_result.msg and 'Cannot change volume security style' not in volume_creation_result.msg"
-
-- name: Display volume creation result
-  ansible.builtin.debug:
-    var: volume_creation_result
-    verbosity: 1
-    
+- name: "Include task to create a snapshot (custom action)"
+  ansible.builtin.include_tasks: _create_snapshot.yml
+  when: netapp_volume_state == 'snapshot'
+  

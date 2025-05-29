@@ -1,0 +1,19 @@
+---
+# tasks file for creating a snapshot of a NetApp volume
+
+- name: "Create snapshot '{{ netapp_snapshot_name }}' for volume '{{ netapp_volume_name }}'"
+  netapp.ontap.na_ontap_snapshot:
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    validate_certs: "{{ netapp_validate_certs }}"
+    state: "present" # Ensures the snapshot exists
+    name: "{{ netapp_snapshot_name }}"
+    volume_name: "{{ netapp_volume_name }}"
+    vserver: "{{ netapp_volume_vserver }}"
+  delegate_to: localhost # Run this task on the Ansible control node
+  register: snapshot_result
+
+- name: "Display snapshot creation result"
+  ansible.builtin.debug:
+    msg: "Snapshot '{{ netapp_snapshot_name }}' for volume '{{ netapp_volume_name }}' state: {{ snapshot_result.changed | ternary('created', 'already exists') }}"

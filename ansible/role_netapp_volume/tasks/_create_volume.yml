@@ -1,0 +1,26 @@
+---
+# tasks file for creating or ensuring a volume exists and is configured
+
+- name: "Ensure NetApp volume '{{ netapp_volume_name }}' is present and configured"
+  netapp.ontap.na_ontap_volume:
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    validate_certs: "{{ netapp_validate_certs }}"
+    state: "present" # Ensures the volume exists
+    name: "{{ netapp_volume_name }}"
+    vserver: "{{ netapp_volume_vserver }}"
+    aggregate_name: "{{ netapp_volume_aggregate }}"
+    size: "{{ netapp_volume_size }}"
+    junction_path: "{{ netapp_volume_junction_path }}"
+    space_guarantee: "{{ netapp_volume_space_guarantee }}"
+    snapshot_policy: "{{ netapp_volume_snapshot_policy }}"
+    security_style: "{{ netapp_volume_security_style }}"
+    tiering_policy: "{{ netapp_volume_tiering_policy }}"
+    comment: "{{ netapp_volume_comment }}"
+  delegate_to: localhost # Run this task on the Ansible control node
+  register: volume_create_result
+
+- name: "Display volume creation/modification result"
+  ansible.builtin.debug:
+    msg: "Volume '{{ netapp_volume_name }}' state: {{ volume_create_result.changed | ternary('changed', 'no change') }}"
