@@ -1,25 +1,36 @@
 ---
-- name: "Conditionally Set a Fact"
+- name: "Conditionally Set a Fact Based on List Items"
   hosts: localhost # Or your target hosts
   connection: local # Use 'local' if running locally, or remove for remote hosts
   gather_facts: false
 
   vars:
-    # This is the "different fact" that we'll check.
+    # This is the "different fact" (a string) that we'll check.
     # You would typically get this from 'ansible_facts', a registered variable, or another source.
-    my_test_fact: "This string contains foo and some other text."
-    # my_test_fact: "This string contains bar."
-    # my_test_fact: "This string has neither."
-    # my_test_fact: "This is a foobar string."
-    # my_test_fact: "just a plain string"
+    my_string_fact: "This is a test string containing the word apple and some other text."
+    # my_string_fact: "I like bananas and oranges."
+    # my_string_fact: "No matching fruits here."
+
+    # This is the list of items (substrings) to check against.
+    substring_list:
+      - "apple"
+      - "banana"
+      - "orange"
+      - "grape"
 
   tasks:
-    - name: "Set 'my_output_fact' to 'a' if 'my_test_fact' contains 'foo' or 'bar'"
+    - name: "Set 'my_output_fact' to 'a' if 'my_string_fact' contains any item from 'substring_list'"
       ansible.builtin.set_fact:
         my_output_fact: "a"
-      # The 'when' condition checks if 'foo' is a substring of 'my_test_fact'
-      # OR if 'bar' is a substring of 'my_test_fact'.
-      when: "'foo' in my_test_fact or 'bar' in my_test_fact"
+      # The 'when' condition uses a Jinja2 'for' loop and 'in' operator
+      # combined with the 'any' test to check if any substring is found.
+      when: >
+        my_string_fact is search('(' + substring_list | join('|') + ')')
+      # Alternatively, using a loop and 'any' test for more complex matching if regex isn't suitable:
+      # when: "my_string_fact is defined and (substring_list | select('in', my_string_fact) | list | length > 0)"
+      # Or, for a more explicit 'any' test:
+      # when: "my_string_fact is defined and (substring_list | map('regex_search', my_string_fact) | select('defined') | list | length > 0)"
+
 
     - name: "Display the value of my_output_fact (if set)"
       ansible.builtin.debug:
@@ -28,5 +39,5 @@
 
     - name: "Inform if my_output_fact was NOT set"
       ansible.builtin.debug:
-        msg: "The condition was not met, so my_output_fact was not set."
+        msg: "The condition was not met, so my_output_fact was not not set."
       when: my_output_fact is not defined
