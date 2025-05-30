@@ -1,0 +1,32 @@
+---
+- name: "Conditionally Set a Fact"
+  hosts: localhost # Or your target hosts
+  connection: local # Use 'local' if running locally, or remove for remote hosts
+  gather_facts: false
+
+  vars:
+    # This is the "different fact" that we'll check.
+    # You would typically get this from 'ansible_facts', a registered variable, or another source.
+    my_test_fact: "This string contains foo and some other text."
+    # my_test_fact: "This string contains bar."
+    # my_test_fact: "This string has neither."
+    # my_test_fact: "This is a foobar string."
+    # my_test_fact: "just a plain string"
+
+  tasks:
+    - name: "Set 'my_output_fact' to 'a' if 'my_test_fact' contains 'foo' or 'bar'"
+      ansible.builtin.set_fact:
+        my_output_fact: "a"
+      # The 'when' condition checks if 'foo' is a substring of 'my_test_fact'
+      # OR if 'bar' is a substring of 'my_test_fact'.
+      when: "'foo' in my_test_fact or 'bar' in my_test_fact"
+
+    - name: "Display the value of my_output_fact (if set)"
+      ansible.builtin.debug:
+        msg: "The value of my_output_fact is: {{ my_output_fact }}"
+      when: my_output_fact is defined # Only show if the fact was set
+
+    - name: "Inform if my_output_fact was NOT set"
+      ansible.builtin.debug:
+        msg: "The condition was not met, so my_output_fact was not set."
+      when: my_output_fact is not defined
