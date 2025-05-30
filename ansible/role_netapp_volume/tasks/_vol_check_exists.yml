@@ -1,0 +1,64 @@
+---
+- name: "Create NetApp Volume - Play Fails if Volume Exists"
+  hosts: localhost # Run locally, as the NetApp modules connect directly to the array
+  connection: local
+  gather_facts: false
+
+  vars:
+    # NetApp ONTAP connection details
+    netapp_hostname: "your_netapp_cluster_mgmt_ip_or_fqdn" # <<< CHANGE THIS
+    netapp_username: "your_netapp_api_username"             # <<< CHANGE THIS
+    netapp_password: "your_netapp_api_password"             # <<< CHANGE THIS (IMPORTANT: Use Ansible Vault for production!)
+    netapp_validate_certs: false # Set to true for production with valid certs
+
+    # Volume parameters
+    volume_name: "my_ansible_precheck_vol" # <<< CHANGE THIS
+    volume_vserver: "your_vserver_name"    # <<< CHANGE THIS
+    volume_aggregate: "your_aggregate_name" # <<< CHANGE THIS (Must be an existing aggregate)
+    volume_size: "100g" # e.g., "10g", "1t"
+    volume_junction_path: "/vol/{{ volume_name }}"
+    volume_space_guarantee: "none"
+    volume_security_style: "unix"
+
+  tasks:
+    - name: "STEP 1: Check if volume '{{ volume_name }}' already exists"
+      netapp.ontap.na_ontap_rest_info:
+        hostname: "{{ netapp_hostname }}"
+        username: "{{ netapp_username }}"
+        password: "{{ netapp_password }}"
+        validate_certs: "{{ netapp_validate_certs }}"
+        gather_subset:
+          - volumes # Gather volume information
+        volume_info:
+          name: "{{ volume_name }}" # Filter to check for this specific volume name
+          vserver: "{{ volume_vserver }}" # Filter by vserver name
+      delegate_to: localhost
+      register: volume_check_result
+
+    - name: "STEP 2: FAIL if volume '{{ volume_name }}' already exists"
+      ansible.builtin.fail:
+        msg: "Error: Volume '{{ volume_name }}' on Vserver '{{ volume_vserver }}' already exists. Aborting play."
+      # This 'when' condition checks if the 'records' list is NOT empty (meaning the volume was found).
+      when: volume_check_result.ontap_info['storage/volumes'].records | default([]) | length > 0
+
+    - name: "STEP 3: Create NetApp volume '{{ volume_name }}' (only runs if previous fail task was skipped)"
+      netapp.ontap.na_ontap_volume:
+        hostname: "{{ netapp_hostname }}"
+        username: "{{ netapp_username }}"
+        password: "{{ netapp_password }}"
+        validate_certs: "{{ netapp_validate_certs }}"
+        state: "present" # Ensures desired state
+        name: "{{ volume_name }}"
+        vserver: "{{ volume_vserver }}"
+        aggregate_name: "{{ volume_aggregate }}"
+        size: "{{ volume_size }}"
+        junction_path: "{{ volume_junction_path }}"
+        space_guarantee: "{{ volume_space_guarantee }}"
+        security_style: "{{ volume_security_style }}"
+      delegate_to: localhost
+      register: volume_creation_status
+
+    - name: "STEP 4: Report volume creation success"
+      ansible.builtin.debug:
+        msg: "Volume '{{ volume_name }}' was created successfully."
+      when: volume_creation_status is defined and volume_creation_status.changed
