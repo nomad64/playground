@@ -6,6 +6,7 @@ This Ansible role automates various NetApp SVM-DR SnapMirror operations, includi
 - Synchronizing an existing SVM-DR SnapMirror relationship.
 - Quiescing an SVM-DR SnapMirror relationship.
 - Breaking an SVM-DR SnapMirror relationship.
+- **Tearing down (deleting) an SVM-DR SnapMirror relationship.**
 
 ## Requirements
 
@@ -43,8 +44,8 @@ Example playbook:
     snapmirror_destination_cluster: your_destination_cluster_name
     snapmirror_policy: MirrorAllVolumes # Example policy for SVM-DR
 
-    # Choose the operation (setup, sync, quiesce, break)
-    snapmirror_operation: setup # Change this for desired operation
+    # Choose the operation (setup, sync, quiesce, break, teardown)
+    snapmirror_operation: teardown # Change this for desired operation
 
   roles:
     - netapp_snapmirror
@@ -67,3 +68,7 @@ Quiesces an SVM-DR SnapMirror relationship, stopping future transfers.
 ### Break (`snapmirror_operation: break`)
 
 Breaks an SVM-DR SnapMirror relationship, making the destination SVM's volumes writable.
+
+### Teardown (`snapmirror_operation: teardown`)
+
+**Deletes (tears down) an SVM-DR SnapMirror relationship.** This will remove the relationship from both source and destination clusters. The destination SVM will remain, but its contents will be gone or inaccessible (depending on the break status). Make sure you understand the implications before using this.
