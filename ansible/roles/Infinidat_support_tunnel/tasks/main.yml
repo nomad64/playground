@@ -1,0 +1,20 @@
+---
+# tasks/main.yml for infinibox_support_tunnel
+
+- name: Assert sensitive variables are vaulted if not empty
+  ansible.builtin.assert:
+    that:
+      - "{{ sa_password | is_ansible_vault_encrypted if (sa_password | default('') | length > 0) else true }}"
+      - "{{ tunnel_rss_secret | is_ansible_vault_encrypted if (tunnel_rss_secret | default('') | length > 0) else true }}"
+      - "{{ proxy_auth_username | is_ansible_vault_encrypted if (proxy_auth_username | default('') | length > 0 and use_proxy and enable_proxy_auth) else true }}"
+      - "{{ proxy_auth_password | is_ansible_vault_encrypted if (proxy_auth_password | default('') | length > 0 and use_proxy and enable_proxy_auth) else true }}"
+    quiet: true
+    fail_msg: "Sensitive variables (sa_password, tunnel_rss_secret, proxy credentials if used) must be encrypted with Ansible Vault."
+  when: "ansible_check_mode is not defined or not ansible_check_mode" # Avoid issues in check mode if vars are templates
+
+- name: Log in to Infinibox Support Appliance and get session cookie
+  ansible.builtin.include_tasks: login.yml
+
+- name: Include tasks for '{{ state }}' action
+  ansible.builtin.include_tasks: "{{ state }}.yml"
+  

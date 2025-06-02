@@ -1,0 +1,37 @@
+---
+# defaults/main.yml for infinibox_support_tunnel
+
+# Base URL for the Infinibox Support Appliance API
+sa_url: "https://<your_sa_hostname_or_ip>" # e.g., https://ibox123-sa
+
+# Credentials for the Support Appliance API
+# IMPORTANT: Use Ansible Vault to protect sensitive values like passwords.
+sa_username: "your_api_username"
+sa_password: "your_api_password" # [VAULT]
+
+# Tunnel configuration parameters (used when state is 'present' or 'restarted')
+tunnel_address: "rss.infinidat.com" # Target RSS address for the tunnel [cite: 25]
+tunnel_rss_secret: "your_rss_secret" # Secret for the RSS connection [cite: 25] [VAULT]
+
+# Optional: Connection timeout for the tunnel in seconds.
+# Set to 0 or leave undefined to use appliance default. [cite: 29]
+tunnel_connection_timeout: 0
+
+# Optional: Proxy configuration
+use_proxy: false
+proxy_url: "http://your_proxy_server:port" # e.g., http://proxy.example.com:8080 [cite: 27]
+proxy_protocol: "http" # Protocol for proxy_address (e.g. http, https) [cite: 27]
+enable_proxy_auth: false # [cite: 28]
+proxy_auth_username: "" # [VAULT] [cite: 28]
+proxy_auth_password: "" # [VAULT] [cite: 28]
+
+# Desired state of the support tunnel
+# Options:
+#   status: Check and display current tunnel status.
+#   present: Ensure the tunnel is active (starts it if idle).
+#   absent: Ensure the tunnel is inactive (stops it if active).
+#   restarted: Stop the tunnel if active, then start it.
+state: "status"
+
+# SSL certificate validation for API calls
+validate_certs: false # Set to true in production if SA has a trusted certificate

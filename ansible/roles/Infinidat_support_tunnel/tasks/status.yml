@@ -1,0 +1,24 @@
+---
+# tasks/status.yml
+
+- name: Check Infinibox Support Appliance tunnel status
+  ansible.builtin.uri:
+    url: "{{ sa_url }}/api/v1/status" # [cite: 5]
+    method: GET
+    validate_certs: "{{ validate_certs }}"
+    headers:
+      Cookie: "{{ sa_session_cookie }}" # Use session cookie from login
+    status_code: 200 # Expect HTTP 200 for status check [cite: 6]
+  register: tunnel_status_response
+  changed_when: false
+
+- name: Display tunnel status
+  ansible.builtin.debug:
+    msg:
+      - "Infinibox Support tunnel status for {{ sa_url }}:"
+      - "  Overall Status: {{ tunnel_status_response.json.status }}"
+      - "  Connected Technicians: {{ 'Yes' if tunnel_status_response.json.connected_technicians else 'None' }}" # [cite: 7]
+      - "  Current Time on SA: {{ (tunnel_status_response.json.current_time | int) | ansible.builtin.strftime('%Y-%m-%d %H:%M:%S %Z') if tunnel_status_response.json.current_time else 'N/A' }}"
+      - "  Connection Time: {{ (tunnel_status_response.json.connection_time | int) | ansible.builtin.strftime('%Y-%m-%d %H:%M:%S %Z') if tunnel_status_response.json.connection_time else 'N/A' }}"
+      - "  Connection End Time: {{ (tunnel_status_response.json.connection_end_time | int) | ansible.builtin.strftime('%Y-%m-%d %H:%M:%S %Z') if tunnel_status_response.json.connection_end_time else 'N/A' }}"
+      - "  Last Error: {{ tunnel_status_response.json.last_error | default('N/A', true) }}"

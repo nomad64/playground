@@ -1,0 +1,25 @@
+---
+# tasks/restarted.yml (Stops and then starts the tunnel)
+
+- name: Announce tunnel restart operation
+  ansible.builtin.debug:
+    msg: "Restarting Infinibox Support Tunnel for {{ sa_url }}."
+
+# The Python script's main_reset function has a safety check:
+# if status_dict["support_connected"]: logger.critical("Aborting tunnel reset...") [cite: 30]
+# This role will proceed with stop & start for 'restarted' state by default.
+# You can add a similar pre-check here if desired using a task that fails or skips.
+
+- name: Ensure tunnel is stopped (part of restart)
+  ansible.builtin.include_tasks: absent.yml
+
+- name: Short pause between stop and start
+  ansible.builtin.pause:
+    seconds: 5
+  when: true # Always pause slightly
+
+- name: Ensure tunnel is started (part of restart)
+  ansible.builtin.include_tasks: present.yml
+
+- name: Final status check after restart
+  ansible.builtin.include_tasks: status.yml

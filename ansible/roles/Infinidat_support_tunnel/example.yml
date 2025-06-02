@@ -1,0 +1,21 @@
+---
+- name: Manage Infinibox Support Tunnel
+  hosts: your_infinibox_management_host # Or localhost if running directly
+  connection: local # If tasks run on Ansible controller
+  gather_facts: false
+
+  vars_files:
+    - vars/sa_credentials.vault.yml # Example vaulted file
+
+  roles:
+    - role: infinibox_support_tunnel
+      vars:
+        sa_url: "https://my-ibox123-sa"
+        sa_username: "api_user"
+        # sa_password: "{{ vaulted_sa_password }}" (loaded from vars_files)
+        tunnel_address: "specific.rss.infinidat.com"
+        # tunnel_rss_secret: "{{ vaulted_rss_secret }}"
+        state: "present" # or "absent", "status", "restarted"
+        # Override other defaults as needed
+        # use_proxy: true
+        # proxy_url: "http://proxy.internal:3128"

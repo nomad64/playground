@@ -1,0 +1,52 @@
+---
+# tasks/absent.yml (Ensures tunnel is stopped)
+
+- name: Check current tunnel status before attempting to stop
+  ansible.builtin.uri:
+    url: "{{ sa_url }}/api/v1/status"
+    method: GET
+    validate_certs: "{{ validate_certs }}"
+    headers:
+      Cookie: "{{ sa_session_cookie }}"
+    status_code: 200
+  register: current_status_for_stop
+  changed_when: false
+
+- name: Stop Infinibox Support Appliance tunnel if active
+  ansible.builtin.uri:
+    url: "{{ sa_url }}/api/v1/stop" # [cite: 12]
+    method: POST
+    validate_certs: "{{ validate_certs }}"
+    headers:
+      Cookie: "{{ sa_session_cookie }}"
+    status_code: 200 # Assuming 200 is success for stop command
+  when: current_status_for_stop.json.status in ['connected', 'reconnecting', 'starting'] # [cite: 37]
+  register: stop_tunnel_action
+
+- name: Wait and verify tunnel is stopped (status is 'idle')
+  ansible.builtin.uri:
+    url: "{{ sa_url }}/api/v1/status"
+    method: GET
+    validate_certs: "{{ validate_certs }}"
+    headers:
+      Cookie: "{{ sa_session_cookie }}"
+    status_code: 200
+  register: status_after_stop_attempt
+  until: status_after_stop_attempt.json.status == "idle" # [cite: 15] (idle or Disconnected)
+  retries: 12 # Poll for up to 60 seconds (12 retries * 5s delay)
+  delay: 5  # Python script sleeps for 5s then rechecks [cite: 13]
+  when: stop_tunnel_action.changed # Only poll if a stop was attempted
+  changed_when: false # This task only checks status
+
+- name: Report final tunnel status after stop operation
+  ansible.builtin.debug:
+    msg: >
+      {% if stop_tunnel_action.changed and status_after_stop_attempt.json.status == "idle" %}
+      Infinibox Support tunnel successfully stopped. Current status: idle.
+      {% elif stop_tunnel_action.changed %}
+      Attempted to stop tunnel, but current status is: {{ status_after_stop_attempt.json.status }}.
+      {% elif current_status_for_stop.json.status == "idle" %}
+      Infinibox Support tunnel is already idle. No action taken. [cite: 38]
+      {% else %}
+      Infinibox Support tunnel was {{ current_status_for_stop.json.status }}. Not in a stoppable state according to script logic or already stopped.
+      {% endif %}

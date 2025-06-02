@@ -1,0 +1,24 @@
+---
+# tasks/login.yml
+
+- name: Log in to Infinibox Support Appliance
+  ansible.builtin.uri:
+    url: "{{ sa_url }}/api/v1/login" # [cite: 2]
+    method: POST
+    body:
+      username: "{{ sa_username }}" # [cite: 2]
+      password: "{{ sa_password }}" # [cite: 2]
+    body_format: json
+    validate_certs: "{{ validate_certs }}"
+    headers:
+      Content-Type: "application/json" # [cite: 2]
+    status_code: 200 # Expect HTTP 200 for successful login [cite: 3]
+  register: login_response
+  no_log: true # Prevents logging of password if not using Vault for the variable itself
+  changed_when: false
+
+- name: Set session cookie fact
+  ansible.builtin.set_fact:
+    sa_session_cookie: "{{ login_response.cookies_string }}"
+  changed_when: false
+  

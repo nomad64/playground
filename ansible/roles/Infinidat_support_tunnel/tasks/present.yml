@@ -1,0 +1,105 @@
+---
+# tasks/present.yml (Ensures tunnel is started/connected)
+
+- name: Check current tunnel status before attempting to start
+  ansible.builtin.uri:
+    url: "{{ sa_url }}/api/v1/status"
+    method: GET
+    validate_certs: "{{ validate_certs }}"
+    headers:
+      Cookie: "{{ sa_session_cookie }}"
+    status_code: 200
+  register: current_status_for_start
+  changed_when: false
+
+- name: Prepare tunnel configuration payload
+  ansible.builtin.set_fact:
+    tunnel_config_payload:
+      address: "{{ tunnel_address }}" # [cite: 25]
+      password: "{{ tunnel_rss_secret }}" # [cite: 25]
+  no_log: true # Hide secret
+
+- name: Add proxy settings to payload if use_proxy is true
+  ansible.builtin.set_fact:
+    tunnel_config_payload: >-
+      {{ tunnel_config_payload | combine({
+           'proxy_address': proxy_url,
+           'proxy_protocol': proxy_protocol,
+           'enable_proxy_auth': enable_proxy_auth
+         })
+      }}
+  when: use_proxy
+  no_log: true
+
+- name: Add proxy authentication to payload if enabled
+  ansible.builtin.set_fact:
+    tunnel_config_payload: >-
+      {{ tunnel_config_payload | combine({
+           'proxy_auth_username': proxy_auth_username,
+           'proxy_auth_password': proxy_auth_password
+         })
+      }}
+  when: use_proxy and enable_proxy_auth
+  no_log: true
+
+- name: Add connection timeout to payload if specified
+  ansible.builtin.set_fact:
+    tunnel_config_payload: "{{ tunnel_config_payload | combine({'connection_timeout': tunnel_connection_timeout | int }) }}"
+  when: tunnel_connection_timeout is defined and (tunnel_connection_timeout | int) > 0 # [cite: 29]
+
+- name: Start Infinibox Support Appliance tunnel if not already connected/starting
+  ansible.builtin.uri:
+    url: "{{ sa_url }}/api/v1/connect" # [cite: 8]
+    method: POST
+    body: "{{ tunnel_config_payload }}"
+    body_format: json
+    validate_certs: "{{ validate_certs }}"
+    headers:
+      Content-Type: "application/json"
+      Cookie: "{{ sa_session_cookie }}"
+    status_code: 200 # API likely returns 200 if request is accepted [cite: 9]
+  when: current_status_for_start.json.status not in ['connected', 'starting']
+  register: start_tunnel_action
+  no_log: true # Payload contains secrets
+
+- name: Initial pause after sending connect command
+  ansible.builtin.pause:
+    seconds: 5 # Python script sleeps 5s after POST [cite: 9]
+  when: start_tunnel_action.changed
+
+- name: Verify tunnel connection status (poll until 'connected')
+  ansible.builtin.uri:
+    url: "{{ sa_url }}/api/v1/status"
+    method: GET
+    validate_certs: "{{ validate_certs }}"
+    headers:
+      Cookie: "{{ sa_session_cookie }}"
+    status_code: 200
+  register: tunnel_connection_check
+  until: tunnel_connection_check.json.status == "connected" # [cite: 10]
+  retries: 12 # Python default check_count is 10. Retry for ~2 minutes (12 * 10s + initial 5s). [cite: 8]
+  delay: 10 # Python script waits 10s if 'starting'. [cite: 10]
+  when: start_tunnel_action.changed
+  changed_when: false # This task only checks status
+
+- name: Report final tunnel status after start operation
+  ansible.builtin.debug:
+    msg: >
+      {% if start_tunnel_action.changed and tunnel_connection_check.json.status == "connected" %}
+      Infinibox Support tunnel successfully connected.
+      {% elif start_tunnel_action.changed %}
+      Failed to connect Infinibox Support tunnel. Current status: {{ tunnel_connection_check.json.status }}. Last error: {{ tunnel_connection_check.json.last_error | default('N/A') }} [cite: 11]
+      {% elif current_status_for_start.json.status == 'connected' %}
+      Infinibox Support tunnel is already connected.
+      {% elif current_status_for_start.json.status == 'starting' %}
+      Infinibox Support tunnel was already in 'starting' state. Check status again shortly.
+      {% else %}
+      Tunnel status was {{ current_status_for_start.json.status }}. Not actioned by 'present' state logic.
+      {% endif %}
+
+- name: Fail if tunnel did not connect after attempting to start
+  ansible.builtin.fail:
+    msg: "Infinidat support tunnel did not connect successfully! It is currently in state: {{ tunnel_connection_check.json.status }} with error: {{ tunnel_connection_check.json.last_error | default('N/A') }}" # [cite: 11]
+  when:
+    - start_tunnel_action.changed
+    - tunnel_connection_check.json.status != "connected"
