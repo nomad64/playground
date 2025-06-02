@@ -78,3 +78,20 @@
     destination_writable: "{{ snapmirror_break_writable }}" # Make destination writable after break
   tags:
     - snapmirror_break_svm_dr
+
+- name: Tear down (Delete) SVM-DR SnapMirror relationship
+  when: snapmirror_operation == 'teardown'
+  netapp.ontap.na_ontap_snapmirror:
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    state: "absent" # This state tears down the relationship
+    type: "{{ snapmirror_type }}" # Explicitly set to svm_dr
+    source_vserver: "{{ snapmirror_source_svm }}"
+    source_cluster: "{{ snapmirror_source_cluster }}"
+    destination_vserver: "{{ snapmirror_destination_svm }}"
+    destination_cluster: "{{ snapmirror_destination_cluster }}"
+    policy: "{{ snapmirror_policy }}" # Policy is required to identify the relationship to delete
+  tags:
+    - snapmirror_teardown_svm_dr
+    
