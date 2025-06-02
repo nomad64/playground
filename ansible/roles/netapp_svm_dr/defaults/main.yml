@@ -1,0 +1,28 @@
+# Default variables for the netapp_snapmirror role (SVM-DR specific)
+
+# NetApp ONTAP connection details
+netapp_hostname: "localhost" # IP address or hostname of the ONTAP cluster management LIF
+netapp_username: "admin"     # ONTAP username
+netapp_password: "password"  # ONTAP password
+# For SVM-DR, connection is typically to the cluster, so netapp_vserver is not directly used for the module connection.
+
+# SVM-DR SnapMirror relationship details
+snapmirror_source_svm: ""         # Source SVM name (e.g., "source_svm")
+snapmirror_source_cluster: ""     # Source cluster name (e.g., "cluster_a")
+snapmirror_destination_svm: ""    # Destination SVM name (e.g., "dest_svm")
+snapmirror_destination_cluster: "" # Destination cluster name (e.g., "cluster_b")
+snapmirror_policy: "MirrorAllVolumes" # SnapMirror policy (e.g., "MirrorAllVolumes", "XDPDefault")
+snapmirror_schedule: ""           # Optional: SnapMirror schedule (e.g., "hourly", "daily")
+snapmirror_throttle: ""           # Optional: SnapMirror throttle (e.g., "10000KB/s")
+snapmirror_type: "svm_dr"         # Type of relationship (MUST be svm_dr for this role)
+snapmirror_state: "present"       # Desired state for setup (present, absent)
+
+# Operation control
+# Valid values: "setup", "sync", "quiesce", "break"
+snapmirror_operation: "setup"
+
+# Optional: For break operation, specify if destination should be writable
+snapmirror_break_writable: true
+
+# Optional: For setup, specify if relationship should be initialized immediately after creation
+snapmirror_initialize_after_create: true

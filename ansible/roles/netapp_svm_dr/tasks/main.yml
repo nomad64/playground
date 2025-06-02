@@ -1,0 +1,80 @@
+# Main tasks for the netapp_snapmirror role (SVM-DR specific)
+
+- name: Ensure netapp.ontap collection is available
+  ansible.builtin.assert:
+    that:
+      - "'netapp.ontap' in ansible.builtin.collections"
+    fail_msg: "The 'netapp.ontap' collection is required. Please install it using 'ansible-galaxy collection install netapp.ontap'."
+  run_once: true
+  delegate_to: localhost
+
+- name: Set up SVM-DR SnapMirror relationship
+  when: snapmirror_operation == 'setup'
+  netapp.ontap.na_ontap_snapmirror:
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    # For SVM-DR, the vserver parameter in the connection context is not typically used.
+    # The operation is cluster-wide, and the hostname connects to the cluster management LIF.
+    state: "{{ snapmirror_state }}"
+    type: "{{ snapmirror_type }}" # Explicitly set to svm_dr
+    source_vserver: "{{ snapmirror_source_svm }}"
+    source_cluster: "{{ snapmirror_source_cluster }}"
+    destination_vserver: "{{ snapmirror_destination_svm }}"
+    destination_cluster: "{{ snapmirror_destination_cluster }}"
+    policy: "{{ snapmirror_policy }}"
+    schedule: "{{ snapmirror_schedule | default(omit) }}"
+    throttle: "{{ snapmirror_throttle | default(omit) }}"
+    initialize_after_create: "{{ snapmirror_initialize_after_create }}"
+  tags:
+    - snapmirror_setup_svm_dr
+
+- name: Synchronize SVM-DR SnapMirror relationship
+  when: snapmirror_operation == 'sync'
+  netapp.ontap.na_ontap_snapmirror:
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    state: "present" # Keep state as present for sync
+    type: "{{ snapmirror_type }}" # Explicitly set to svm_dr
+    source_vserver: "{{ snapmirror_source_svm }}"
+    source_cluster: "{{ snapmirror_source_cluster }}"
+    destination_vserver: "{{ snapmirror_destination_svm }}"
+    destination_cluster: "{{ snapmirror_destination_cluster }}"
+    policy: "{{ snapmirror_policy }}" # Policy is required for relationship identification
+    action: "update" # Explicitly request an update/sync
+  tags:
+    - snapmirror_sync_svm_dr
+
+- name: Quiesce SVM-DR SnapMirror relationship
+  when: snapmirror_operation == 'quiesce'
+  netapp.ontap.na_ontap_snapmirror:
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    state: "quiesced"
+    type: "{{ snapmirror_type }}" # Explicitly set to svm_dr
+    source_vserver: "{{ snapmirror_source_svm }}"
+    source_cluster: "{{ snapmirror_source_cluster }}"
+    destination_vserver: "{{ snapmirror_destination_svm }}"
+    destination_cluster: "{{ snapmirror_destination_cluster }}"
+    policy: "{{ snapmirror_policy }}" # Policy is required for relationship identification
+  tags:
+    - snapmirror_quiesce_svm_dr
+
+- name: Break SVM-DR SnapMirror relationship
+  when: snapmirror_operation == 'break'
+  netapp.ontap.na_ontap_snapmirror:
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    state: "broken"
+    type: "{{ snapmirror_type }}" # Explicitly set to svm_dr
+    source_vserver: "{{ snapmirror_source_svm }}"
+    source_cluster: "{{ snapmirror_source_cluster }}"
+    destination_vserver: "{{ snapmirror_destination_svm }}"
+    destination_cluster: "{{ snapmirror_destination_cluster }}"
+    policy: "{{ snapmirror_policy }}" # Policy is required for relationship identification
+    destination_writable: "{{ snapmirror_break_writable }}" # Make destination writable after break
+  tags:
+    - snapmirror_break_svm_dr
