@@ -1,0 +1,11 @@
+---
+# tasks file for ansible-role-netapp-autosupport
+
+- name: Process each NetApp ONTAP array
+  ansible.builtin.include_tasks: configure_autosupport_for_array.yml
+  loop: "{{ ontap_arrays }}"
+  loop_control:
+    loop_var: current_array # Define a variable to refer to the current array in the loop
+  tags:
+    - netapp_autosupport
+    - configuration

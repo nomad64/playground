@@ -1,0 +1,32 @@
+---
+# tasks/configure_autosupport_for_array.yml
+
+- name: Get ONTAP node information for {{ current_array.hostname }} using REST API
+  netapp.ontap.na_ontap_rest_info:
+    hostname: "{{ current_array.hostname }}"
+    username: "{{ current_array.username }}"
+    password: "{{ current_array.password }}"
+    https: "{{ current_array.https | default(true) }}"
+    validate_certs: "{{ current_array.validate_certs | default(false) }}"
+    query: "cluster/nodes" # Use the REST API endpoint for cluster nodes
+  register: nodes_info # Register the output to access node details
+  delegate_to: localhost # This task runs on the Ansible control node
+
+- name: Configure NetApp ONTAP Autosupport for HTTP with Proxy Authentication on node {{ node_item.name }} of {{ current_array.hostname }}
+  netapp.ontap.na_ontap_autosupport:
+    hostname: "{{ current_array.hostname }}"
+    username: "{{ current_array.username }}"
+    password: "{{ current_array.password }}"
+    https: "{{ current_array.https | default(true) }}"
+    validate_certs: "{{ current_array.validate_certs | default(false) }}"
+    state: present
+    node_name: "{{ node_item.name }}" # Specify the node name for configuration
+    http_enabled: "{{ current_array.http_enabled | default(true) }}"
+    proxy_enabled: "{{ current_array.proxy_enabled | default(true) }}"
+    proxy_username: "{{ current_array.proxy_username }}"
+    proxy_password: "{{ current_array.proxy_password }}"
+  loop: "{{ nodes_info.ontap_info['cluster/nodes'].records | default([]) }}" # Loop over the list of nodes retrieved from REST API
+  loop_control:
+    loop_var: node_item # Define a variable to refer to the current node in the inner loop
+  delegate_to: localhost # This task runs on the Ansible control node
+  when: nodes_info.ontap_info['cluster/nodes'].records is defined and nodes_info.ontap_info['cluster/nodes'].records | length > 0 # Only run if node info is retrieved

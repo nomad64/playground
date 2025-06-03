@@ -1,0 +1,15 @@
+---
+# defaults file for ansible-role-netapp-autosupport
+
+# NetApp ONTAP connection details
+ontap_hostname: "your_ontap_cluster_ip_or_hostname"
+ontap_username: "your_ontap_username"
+ontap_password: "your_ontap_password"
+ontap_https: true # Set to true for HTTPS connection (recommended)
+ontap_validate_certs: false # Set to true for production environments with valid certificates
+
+# Autosupport configuration
+autosupport_http_enabled: true
+autosupport_proxy_enabled: true
+autosupport_proxy_username: "your_proxy_username"
+autosupport_proxy_password: "your_proxy_password" # Consider using Ansible Vault for sensitive data
