@@ -1,0 +1,30 @@
+---
+- name: Match local fact to dictionary list and set peer fact
+  hosts: localhost # You can replace 'localhost' with your target host group
+  connection: local # Use 'local' for running on the Ansible control machine, or remove if targeting remote hosts
+
+  vars:
+    # This is your list of dictionaries
+    server_mappings:
+      - { svm: "server_a", peer: "peer_x" }
+      - { svm: "server_b", peer: "peer_y" }
+      - { svm: "server_c", peer: "peer_z" }
+      - { svm: "server_d", peer: "peer_w" }
+
+    # This is your local fact (or a variable simulating it for demonstration)
+    # In a real scenario, 'local_fact_value' would likely be gathered from the target host
+    # e.g., using 'setup' module or a custom fact script.
+    local_fact_value: "server_c" # Change this value to test different matches
+
+  tasks:
+    - name: Set 'peer_server' fact based on 'local_fact_value' matching 'svm'
+      set_fact:
+        peer_server: "{{ item.peer }}"
+      loop: "{{ server_mappings }}" # Iterate over each dictionary in the 'server_mappings' list
+      when: item.svm == local_fact_value # Condition: Only set the fact if 'item.svm' matches 'local_fact_value'
+
+    - name: Display the set 'peer_server' fact
+      debug:
+        msg: "The peer server for {{ local_fact_value }} is: {{ peer_server | default('NOT FOUND') }}"
+      # The 'default' filter is used here in case no match was found,
+      # preventing an error if 'peer_server' was not set.
