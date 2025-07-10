@@ -1,0 +1,51 @@
+---
+- name: Sum bytes from dictionary keys and convert to TB
+  hosts: localhost
+  gather_facts: no
+
+  vars:
+    # Define your dictionary with nested 'bytes' keys here.
+    # The playbook will sum the values of all 'bytes' keys found.
+    my_data_dictionary:
+      server_a_disk_usage:
+        path: "/var/log"
+        bytes: 10737418240 # 10 GB
+        unit: "GB"
+      server_b_backup_size:
+        path: "/backups/daily"
+        bytes: 2199023255552 # 2 TB
+        unit: "TB"
+      server_c_temp_files:
+        path: "/tmp"
+        bytes: 5368709120 # 5 GB
+        unit: "GB"
+      server_d_metadata:
+        count: 1000
+        size: "small" # This entry does not have a 'bytes' key
+      server_e_database_size:
+        bytes: 549755813888 # 0.5 TB
+        unit: "TB"
+
+    # Initialize a variable to store the total bytes
+    total_bytes_sum: 0
+
+  tasks:
+    - name: Loop through the dictionary and sum 'bytes' values
+      set_fact:
+        # Add the 'bytes' value to total_bytes_sum if the 'bytes' key exists
+        total_bytes_sum: "{{ total_bytes_sum | int + (item.value.bytes | default(0) | int) }}"
+      # Loop over the items (key-value pairs) in my_data_dictionary
+      loop: "{{ my_data_dictionary | dict2items }}"
+      # Only process items that actually have a 'bytes' key
+      when: item.value.bytes is defined
+
+    - name: Convert total bytes to Terabytes (TB)
+      # 1 TB = 1024 * 1024 * 1024 * 1024 bytes (1 TiB, common in storage)
+      # Or 1 TB = 1,000,000,000,000 bytes (1 TB, decimal)
+      # We'll use 1024-based (TiB) as it's standard for storage capacity.
+      set_fact:
+        total_terabytes: "{{ (total_bytes_sum | float / (1024**4)) | round(2) }}" # Round to 2 decimal places for readability
+
+    - name: Display the final result
+      debug:
+        msg: "The total size across all specified 'bytes' keys is {{ total_terabytes }} TB."
