@@ -1,0 +1,61 @@
+# -----------------------------------------------------------------------------
+# File: tasks/main.yml
+# -----------------------------------------------------------------------------
+# This file contains the main logic of the role. It is a direct conversion
+# of the tasks from the original playbook, with a condensed output format.
+
+---
+- name: Get Volume Information
+  # The 'na_ontap_volume_info' module retrieves details about a specific volume.
+  # We use this to find the name of the export policy associated with the volume.
+  netapp.ontap.na_ontap_volume_info:
+    hostname: "{{ netapp_host }}"
+    username: "{{ netapp_user }}"
+    password: "{{ netapp_password }}"
+    validate_certs: "{{ netapp_validate_certs }}"
+    vserver: "{{ netapp_target_svm_name }}"
+    name: "{{ netapp_target_volume_name }}"
+  register: volume_info
+  # The 'until' and 'retries' keywords ensure that the task
+  # will retry if it fails temporarily, which can happen with
+  # API calls.
+  until: volume_info is not failed
+  retries: 5
+  delay: 5
+
+- name: Get Export Policy Rules
+  # The 'na_ontap_export_policy_info' module retrieves the rules for an export policy.
+  # We use the policy name we found in the previous task.
+  netapp.ontap.na_ontap_export_policy_info:
+    hostname: "{{ netapp_host }}"
+    username: "{{ netapp_user }}"
+    password: "{{ netapp_password }}"
+    validate_certs: "{{ netapp_validate_certs }}"
+    vserver: "{{ netapp_target_svm_name }}"
+    name: "{{ volume_info.ontap_volumes[0].export_policy_name }}"
+  register: policy_info
+  # We use 'when' to only run this task if the volume info was successfully retrieved.
+  when: volume_info.ontap_volumes is defined and volume_info.ontap_volumes | length > 0
+  until: policy_info is not failed
+  retries: 5
+  delay: 5
+
+- name: Display the gathered information
+  # This debug task prints a formatted summary of the gathered data.
+  # The output is now formatted to look like a table.
+  debug:
+    msg: |
+      Export Policy Information
+      -------------------------
+      Cluster Hostname: {{ netapp_host }}
+      Volume Name: {{ netapp_target_volume_name }}
+      Volume SVM: {{ netapp_target_svm_name }}
+      Policy Name: {{ policy_info.ontap_export_policies[0].name }}
+
+      Export Policy Rules:
+      | Index | Client Match | Protocols | Permissions (RO/RW/Superuser) |
+      |-------|--------------|-----------|-------------------------------|
+      {% for rule in policy_info.ontap_export_policies[0].rules %}
+      | {{ '%-5s' | format(rule.index) }} | {{ '%-12s' | format(rule.client_match) }} | {{ '%-9s' | format(rule.protocols | join(',')) }} | {{ '%-29s' | format(rule.ro_rule ~ '/' ~ rule.rw_rule ~ '/' ~ rule.superuser) }} |
+      {% endfor %}
+  when: policy_info.ontap_export_policies is defined and policy_info.ontap_export_policies | length > 0

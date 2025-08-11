@@ -1,0 +1,16 @@
+# -----------------------------------------------------------------------------
+# File: defaults/main.yml
+# -----------------------------------------------------------------------------
+# This file contains the default variables for the role. These can be
+# overridden when you call the role from a playbook.
+
+---
+# Connection variables
+netapp_host: "your_netapp_cluster_management_ip"
+netapp_user: "your_netapp_username"
+netapp_password: "your_netapp_password"
+netapp_validate_certs: false
+
+# Volume and SVM variables
+netapp_target_svm_name: "your_svm_name"
+netapp_target_volume_name: "your_volume_name"
