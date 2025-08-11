@@ -1,0 +1,17 @@
+---
+- name: Pretty-print a dictionary
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    user_info:
+      name: "Jane Doe"
+      roles:
+        - "web_admin"
+        - "db_user"
+      status: "active"
+
+  tasks:
+    - name: Use to_nice_json to pretty-print the dictionary
+      ansible.builtin.debug:
+        msg: "{{ user_info | to_nice_json }}"
