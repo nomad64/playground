@@ -1,0 +1,49 @@
+---
+- name: Sanitize Host List with Only Built-in Command, requires python package netaddr
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    host_list:
+      - "google.com"
+      - "localhost"
+      - "8.8.8.8"
+      - "core.ac.uk"
+      - "unresolvable-hostname-xyz123.com"
+      - "1.1.1.1"
+
+  tasks:
+    - name: Separate items that are already IP addresses
+      ansible.builtin.set_fact:
+        existing_ips: "{{ host_list | select('ansible.utils.ipv4') | list }}"
+
+    - name: Identify hostnames that require resolution
+      ansible.builtin.set_fact:
+        hosts_to_resolve: "{{ host_list | reject('ansible.utils.ipv4') | list }}"
+
+    - name: Resolve hostnames using the 'getent' command
+      ansible.builtin.command: "getent ahosts {{ item }}"
+      loop: "{{ hosts_to_resolve }}"
+      register: resolved_hosts
+      # Continue if a host is not found
+      failed_when: false
+      # This command doesn't change state
+      changed_when: false
+
+    - name: Create the final, sanitized list of IP addresses
+      ansible.builtin.set_fact:
+        sanitized_ip_list: >-
+          {{
+            existing_ips +
+            (resolved_hosts.results
+              | selectattr('stdout', '!=', '')
+              | map(attribute='stdout')
+              | map('split', ' ')
+              | map('first')
+              | list)
+          }}
+
+    - name: Display the final sanitized IP list
+      ansible.builtin.debug:
+        var: sanitized_ip_list
