@@ -1,0 +1,14 @@
+---
+# defaults file for netapp_confluence_reporter
+netapp_hostname: "your_netapp_hostname"
+netapp_username: "your_netapp_username"
+netapp_password: "your_netapp_password"
+netapp_vserver: "your_vserver_name"
+netapp_validate_certs: false
+
+confluence_url: "https://your-confluence-instance.com"
+confluence_user: "your_confluence_username"
+confluence_api_token: "your_confluence_api_token"
+confluence_space: "YOURSPACEKEY"
+confluence_parent_page: "Parent Page Title"
+confluence_page_title: "NetApp Volume Report"

@@ -1,0 +1,32 @@
+---
+- name: "Gather NFS export info for {{ volume.name }}"
+  netapp.ontap.na_ontap_export_policy_info:
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https_validate_certs: "{{ netapp_validate_certs }}"
+    vserver: "{{ volume.vserver }}"
+    policy_name: "{{ volume.policy }}"
+  register: nfs_info
+  ignore_errors: true
+
+- name: "Gather CIFS share info for {{ volume.name }}"
+  netapp.ontap.na_ontap_cifs_share_info:
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https_validate_certs: "{{ netapp_validate_certs }}"
+    vserver: "{{ volume.vserver }}"
+    volume: "{{ volume.name }}"
+  register: cifs_info
+  ignore_errors: true
+
+- name: Aggregate volume data
+  ansible.builtin.set_fact:
+    volume_details: "{{ volume_details + [item] }}"
+  loop:
+    - name: "{{ volume.name }}"
+      size_gb: "{{ (volume.size_total / (1024*1024*1024)) | round(2) }}"
+      security_style: "{{ volume.security_style }}"
+      nfs_exports: "{{ nfs_info.ontap_info.export_policy_infos[0].rules | map(attribute='client_match') | list | join(', ') if nfs_info.ontap_info is defined and nfs_info.ontap_info.export_policy_infos else 'N/A' }}"
+      cifs_shares: "{{ cifs_info.ontap_info.cifs_share_infos | map(attribute='share_name') | list | join(', ') if cifs_info.ontap_info is defined and cifs_info.ontap_info.cifs_share_infos else 'N/A' }}"
