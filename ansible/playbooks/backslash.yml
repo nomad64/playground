@@ -1,0 +1,23 @@
+---
+- name: Sanitize list output to lowercase
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    users:
+      - name: "Alex Smith"
+        email: "Alex.Smith@Example.com"
+      - name: "Ben Carter"
+        email: "B.CARTER@Example.com"
+      - name: "Chris Doe"
+        email: "CHRIS@EXAMPLE.COM"
+
+  tasks:
+    - name: "Create the sanitized and formatted list (Corrected)"
+      ansible.builtin.set_fact:
+        # This version uses the ~ operator for concatenation, which is more robust.
+        formatted_user_list: "{{ [ item.name ~ ' (' ~ (item.email | lower) ~ ')' for item in users ] }}"
+
+    - name: "Display the newly created list"
+      ansible.builtin.debug:
+        var: formatted_user_list
