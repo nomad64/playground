@@ -1,0 +1,46 @@
+---
+# Tasks to update a Confluence page
+
+- name: "Get current version for page ID {{ confluence_page_id }}"
+  ansible.builtin.uri:
+    url: "{{ confluence_api_url }}/content/{{ confluence_page_id }}?expand=version"
+    user: "{{ confluence_api_user }}"
+    password: "{{ confluence_api_token }}"
+    method: GET
+    force_basic_auth: true
+    validate_certs: "{{ confluence_validate_certs }}"
+    status_code: 200
+  register: current_page_info
+
+- name: "Set current page info facts"
+  ansible.builtin.set_fact:
+    current_version: "{{ current_page_info.json.version.number }}"
+    current_title: "{{ current_page_info.json.title }}"
+    current_space_key: "{{ current_page_info.json.space.key }}"
+
+- name: "Update page ID {{ confluence_page_id }}"
+  ansible.builtin.uri:
+    url: "{{ confluence_api_url }}/content/{{ confluence_page_id }}"
+    user: "{{ confluence_api_user }}"
+    password: "{{ confluence_api_token }}"
+    method: PUT
+    force_basic_auth: true
+    validate_certs: "{{ confluence_validate_certs }}"
+    body_format: json
+    status_code: 200
+    body:
+      version:
+        number: "{{ current_version + 1 }}"
+      type: "page"
+      title: "{{ current_title }}"
+      space:
+        key: "{{ current_space_key }}"
+      body:
+        storage:
+          value: "{{ confluence_page_content }}"
+          representation: "storage"
+  register: update_result
+
+- name: "Show result of page update"
+  ansible.builtin.debug:
+    msg: "Successfully updated page '{{ current_title }}' to version {{ update_result.json.version.number }}"

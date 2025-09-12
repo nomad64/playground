@@ -1,0 +1,73 @@
+---
+# This playbook demonstrates how to use the 'ansible-confluence' role.
+#
+# USAGE:
+# 1. Fill in your connection and authentication details below.
+#    It is highly recommended to use Ansible Vault for 'confluence_api_token'.
+# 2. Uncomment ONE of the plays below to test a specific action.
+# 3. Run the playbook: ansible-playbook playbook.yml
+
+- name: "=== EXAMPLE 1: Get Confluence Page Information ==="
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - role: ansible-confluence
+      vars:
+        # -- REQUIRED: Define connection details --
+        confluence_api_url: "https://your-instance.atlassian.net/wiki/rest/api"
+        confluence_api_user: "your-email@example.com"
+        confluence_api_token: "YOUR_API_TOKEN_HERE" # Use vault in production!
+
+        # -- Action and Page Details --
+        confluence_action: "get"
+        confluence_space_key: "IT"
+        confluence_page_title: "My Important Document"
+
+# - name: "=== EXAMPLE 2: Create a New Confluence Page ==="
+#   hosts: localhost
+#   gather_facts: false
+#   roles:
+#     - role: ansible-confluence
+#       vars:
+#         # -- REQUIRED: Define connection details --
+#         confluence_api_url: "https://your-instance.atlassian.net/wiki/rest/api"
+#         confluence_api_user: "your-email@example.com"
+#         confluence_api_token: "YOUR_API_TOKEN_HERE"
+
+#         # -- Action and Page Details --
+#         confluence_action: "create"
+#         confluence_space_key: "PROJ"
+#         confluence_parent_page_title: "Project Alpha Home"
+#         confluence_page_title: "Ansible Created This Page"
+#         confluence_page_content: "<h1>Automation Report</h1><p>This page was generated automatically by an Ansible playbook.</p><p>Timestamp: {{ now(utc=False).isoformat() }}</p>"
+
+# - name: "=== EXAMPLE 3: Update an Existing Page by ID ==="
+#   hosts: localhost
+#   gather_facts: false
+#   roles:
+#     - role: ansible-confluence
+#       vars:
+#         # -- REQUIRED: Define connection details --
+#         confluence_api_url: "https://your-instance.atlassian.net/wiki/rest/api"
+#         confluence_api_user: "your-email@example.com"
+#         confluence_api_token: "YOUR_API_TOKEN_HERE"
+
+#         # -- Action and Page Details --
+#         confluence_action: "update"
+#         confluence_page_id: "12345678" # <-- CHANGE THIS to a real page ID
+#         confluence_page_content: "<h2>Content Update</h2><p>This content was updated by Ansible at {{ now(utc=False).isoformat() }}. The previous content has been replaced.</p>"
+
+# - name: "=== EXAMPLE 4: Delete a Page by ID (Use with Caution!) ==="
+#   hosts: localhost
+#   gather_facts: false
+#   roles:
+#     - role: ansible-confluence
+#       vars:
+#         # -- REQUIRED: Define connection details --
+#         confluence_api_url: "https://your-instance.atlassian.net/wiki/rest/api"
+#         confluence_api_user: "your-email@example.com"
+#         confluence_api_token: "YOUR_API_TOKEN_HERE"
+
+#         # -- Action and Page Details --
+#         confluence_action: "delete"
+#         confluence_page_id: "12345678" # <-- CHANGE THIS to a real page ID

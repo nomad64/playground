@@ -1,0 +1,17 @@
+---
+# Tasks to delete a Confluence page
+
+- name: "Delete page with ID {{ confluence_page_id }}"
+  ansible.builtin.uri:
+    url: "{{ confluence_api_url }}/content/{{ confluence_page_id }}"
+    user: "{{ confluence_api_user }}"
+    password: "{{ confluence_api_token }}"
+    method: DELETE
+    force_basic_auth: true
+    validate_certs: "{{ confluence_validate_certs }}"
+    status_code: 204 # No Content is the success code for DELETE
+  register: delete_result
+
+- name: "Show result of page deletion"
+  ansible.builtin.debug:
+    msg: "Successfully deleted page with ID {{ confluence_page_id }}."

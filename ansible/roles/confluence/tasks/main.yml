@@ -1,0 +1,19 @@
+---
+# Main tasks for the Confluence role
+# This file includes the appropriate task file based on the 'confluence_action' variable.
+
+- name: "Run 'get' action"
+  ansible.builtin.include_tasks: get.yml
+  when: confluence_action == 'get'
+
+- name: "Run 'create' action"
+  ansible.builtin.include_tasks: create.yml
+  when: confluence_action == 'create'
+
+- name: "Run 'update' action"
+  ansible.builtin.include_tasks: update.yml
+  when: confluence_action == 'update'
+
+- name: "Run 'delete' action"
+  ansible.builtin.include_tasks: delete.yml
+  when: confluence_action == 'delete'

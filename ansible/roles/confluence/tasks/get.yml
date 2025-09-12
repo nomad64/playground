@@ -1,0 +1,26 @@
+---
+# Tasks to get a Confluence page
+
+- name: "Get page information for '{{ confluence_page_title }}'"
+  ansible.builtin.uri:
+    url: "{{ confluence_api_url }}/content?spaceKey={{ confluence_space_key }}&title={{ confluence_page_title }}&expand=body.storage,version"
+    user: "{{ confluence_api_user }}"
+    password: "{{ confluence_api_token }}"
+    method: GET
+    force_basic_auth: true
+    validate_certs: "{{ confluence_validate_certs }}"
+    status_code: 200
+  register: get_page_result
+
+- name: "Fail if page '{{ confluence_page_title }}' was not found"
+  ansible.builtin.fail:
+    msg: "The page with title '{{ confluence_page_title }}' was not found in space '{{ confluence_space_key }}'."
+  when: get_page_result.json.results | length == 0
+
+- name: "Display page information"
+  ansible.builtin.debug:
+    msg:
+      - "Page Found!"
+      - "ID: {{ get_page_result.json.results[0].id }}"
+      - "Title: {{ get_page_result.json.results[0].title }}"
+      - "Version: {{ get_page_result.json.results[0].version.number }}"

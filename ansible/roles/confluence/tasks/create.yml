@@ -1,0 +1,49 @@
+---
+# Tasks to create a Confluence page
+
+- name: "Get parent page ID for '{{ confluence_parent_page_title }}'"
+  ansible.builtin.uri:
+    url: "{{ confluence_api_url }}/content?spaceKey={{ confluence_space_key }}&title={{ confluence_parent_page_title }}"
+    user: "{{ confluence_api_user }}"
+    password: "{{ confluence_api_token }}"
+    method: GET
+    force_basic_auth: true
+    validate_certs: "{{ confluence_validate_certs }}"
+    status_code: 200
+  register: parent_page_info
+
+- name: "Fail if parent page '{{ confluence_parent_page_title }}' was not found"
+  ansible.builtin.fail:
+    msg: "The specified parent page '{{ confluence_parent_page_title }}' was not found in space '{{ confluence_space_key }}'."
+  when: parent_page_info.json.results | length == 0
+
+- name: "Set parent page ID fact"
+  ansible.builtin.set_fact:
+    parent_page_id: "{{ parent_page_info.json.results[0].id }}"
+
+- name: "Create new page '{{ confluence_page_title }}'"
+  ansible.builtin.uri:
+    url: "{{ confluence_api_url }}/content"
+    user: "{{ confluence_api_user }}"
+    password: "{{ confluence_api_token }}"
+    method: POST
+    force_basic_auth: true
+    validate_certs: "{{ confluence_validate_certs }}"
+    body_format: json
+    status_code: 200
+    body:
+      type: "page"
+      title: "{{ confluence_page_title }}"
+      space:
+        key: "{{ confluence_space_key }}"
+      ancestors:
+        - id: "{{ parent_page_id }}"
+      body:
+        storage:
+          value: "{{ confluence_page_content }}"
+          representation: "storage"
+  register: create_result
+
+- name: "Show result of page creation"
+  ansible.builtin.debug:
+    msg: "Successfully created page with ID {{ create_result.json.id }}"
