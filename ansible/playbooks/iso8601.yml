@@ -1,7 +1,6 @@
 ---
 - name: Convert ISO 8601 to human-readable timestamp
   hosts: localhost
-  gather_facts: false
 
   vars:
     iso_timestamp: "2025-08-10T13:39:36-05:00"
@@ -10,3 +9,7 @@
     - name: Print the formatted timestamp
       ansible.builtin.debug:
         msg: "The current time is {{ (iso_timestamp | to_datetime('%Y-%m-%dT%H:%M:%S%z')).strftime('%Y-%m-%d %H:%M:%S') }}"
+
+    - name: Print formatted timestamp 2
+      ansible.builtin.debug:
+        msg: "{{ '%A, %B %d, %Y at %I:%M %p' | strftime(ansible_date_time.epoch) }}"
