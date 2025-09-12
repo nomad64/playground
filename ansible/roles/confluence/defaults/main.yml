@@ -1,0 +1,46 @@
+---
+# Default variables for the Confluence role
+
+# -- Connection and Authentication --
+# The base URL for your Confluence instance's REST API.
+# For Confluence Cloud, it typically looks like: https://your-instance.atlassian.net/wiki/rest/api
+confluence_api_url: "https://your-instance.atlassian.net/wiki/rest/api"
+
+# The user (email) for API authentication.
+confluence_api_user: ""
+
+# The API token for authentication.
+# IMPORTANT: This should be stored securely using Ansible Vault, not in plain text.
+confluence_api_token: ""
+
+# Whether to validate SSL certificates. Set to 'false' for self-signed certs.
+confluence_validate_certs: true
+
+# -- Optional Proxy Support --
+# A dictionary of proxy environment variables to use for the API calls.
+# Example:
+# confluence_proxy_env:
+#   http_proxy: "http://proxy.example.com:8080"
+#   https_proxy: "http://proxy.example.com:8080"
+#   no_proxy: "localhost,127.0.0.1,your-instance.atlassian.net"
+confluence_proxy_env: {}
+
+# -- Action Control --
+# Defines the action to be performed. Options: get, create, update, delete
+confluence_action: "get"
+
+# -- Page Attributes --
+# The key for the Confluence space (e.g., "IT", "PROJ").
+confluence_space_key: ""
+
+# The title of the page to interact with.
+confluence_page_title: ""
+
+# The unique ID of the page (required for update and delete).
+confluence_page_id: ""
+
+# The title of the parent page under which a new page will be created.
+confluence_parent_page_title: ""
+
+# The content of the page in Confluence Storage Format (HTML).
+confluence_page_content: ""
