@@ -1,0 +1,24 @@
+# netapp_handler/tasks/main.yml
+---
+- name: "HANDLER: {{ netapp_handler_task_description }}"
+  block:
+    - name: "BLOCK: Execute {{ netapp_handler_module_name }}"
+      "{{ netapp_handler_module_name }}": "{{ netapp_handler_module_args }}"
+      register: task_result
+      failed_when: >
+        task_result.http_status_code is defined and
+        task_result.http_status_code not in netapp_handler_success_status_codes
+
+  rescue:
+    - name: "RESCUE: Process failure for {{ netapp_handler_module_name }}"
+      ansible.builtin.fail:
+        msg: |
+          Failed task: '{{ netapp_handler_task_description }}'
+          {% if "Timeout" in ansible_failed_result.msg %}
+          REASON: Connection to host timed out. Check network and firewalls.
+          DETAILS: {{ ansible_failed_result.msg }}
+          {% else %}
+          REASON: The API returned an error after connecting successfully.
+          HTTP STATUS: {{ ansible_failed_result.result.http_status_code | default('N/A') }}
+          API MESSAGE: {{ ansible_failed_result.result.reason | default(ansible_failed_result.msg) }}
+          {% endif %}

@@ -1,0 +1,14 @@
+# netapp_handler/defaults/main.yml
+---
+# A description of the task being run, for logging purposes.
+netapp_handler_task_description: "Generic NetApp Task"
+
+# The full name of the NetApp module to execute.
+# Example: netapp.ontap.na_ontap_volume_create
+netapp_handler_module_name: ""
+
+# A dictionary of arguments to pass to the module.
+netapp_handler_module_args: {}
+
+# A list of HTTP status codes that indicate success for this specific module call.
+netapp_handler_success_status_codes: [200, 201, 202]

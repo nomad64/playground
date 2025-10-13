@@ -1,0 +1,41 @@
+# playbook.yml
+---
+- name: Manage NetApp Resources using a Handler Role
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    netapp_connection_args:
+      hostname: "your-cluster-mgmt-lif"
+      username: "your-username"
+      password: "your-password"
+      https_: true
+      validate_certs: false
+
+  tasks:
+    - name: "TASK 1: Create a new volume"
+      ansible.builtin.include_role:
+        name: netapp_handler
+      vars:
+        netapp_handler_task_description: "Create 'finance_data' volume"
+        netapp_handler_module_name: "netapp.ontap.na_ontap_volume_create"
+        netapp_handler_success_status_codes: [201]
+        netapp_handler_module_args: "{{ netapp_connection_args | combine({
+            'state': 'present',
+            'vserver': 'svm_prod',
+            'name': 'finance_data',
+            'aggregate': 'aggr1_prod',
+            'size': 50,
+            'size_unit': 'gb'
+          }) }}"
+
+    - name: "TASK 2: Get info about an SVM"
+      ansible.builtin.include_role:
+        name: netapp_handler
+      vars:
+        netapp_handler_task_description: "Get info for 'svm_prod'"
+        netapp_handler_module_name: "netapp.ontap.na_ontap_svm_info"
+        netapp_handler_success_status_codes: [200]
+        netapp_handler_module_args: "{{ netapp_connection_args | combine({
+            'name': 'svm_prod'
+          }) }}"
